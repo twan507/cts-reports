@@ -1,0 +1,18 @@
+BÁO CÁO TỔNG HỢP
+Thời gian tạo: 2025-06-24 17:36:06
+==================================================
+
+report_date: 2025-06-24 17:36:06
+analysis_period:
+  start_date: 2024-01-01
+  end_date: 2024-12-25
+total_transactions: 50
+total_revenue: 14812220249.0
+average_transaction: 296244404.98
+top_product: Samsung Galaxy S24
+top_product_revenue: 3025258907.0
+best_month: 2024-05
+best_month_revenue: 3089378157.0
+top_sellers: ['Vũ Thị Phương', 'Trương Văn Sơn', 'Ngô Văn Inh', 'Bùi Thị Hạnh', 'Lê Văn Cường']
+product_count: 10
+customer_count: 49
