@@ -63,7 +63,7 @@ ignore_list = {
     'PyQt6', 'PyQt6-sip',
     'nbformat', 'debugpy', 'plotly',
     'pyinstaller-hooks-contrib',
-    'fiinquantx'
+    'fiinquantx',
 }
 
 imports_from_reqs = []
@@ -107,7 +107,10 @@ hiddenimports_fiinquantx = []  # Tạm thời để rỗng
 
 # --- ĐỊNH NGHĨA CÁC MODULE ẨN CẦN THIẾT ---
 required_hiddenimports = [
+    'win32gui',
+    'win32console',
     'sqlalchemy.dialects.mysql',
+    'cryptography.fernet'
 ]
 
 # --- TỔNG HỢP CÁC THÀNH PHẦN ---

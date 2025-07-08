@@ -34,15 +34,34 @@ def _hide_console_window_on_windows():
 
 
 def _initialize_environment():
+    """
+    Ham nay se tu dong nhan dien moi truong (dev hoac build)
+    va them cac duong dan can thiet vao sys.path.
+    """
     if getattr(sys, "frozen", False):
+        # --- Chay o che do da build (.exe) ---
+        # Duong dan goc la thu muc chua file .exe
         root_dir = os.path.dirname(sys.executable)
         modules_dir = os.path.join(root_dir, "module")
+        import_dir = os.path.join(root_dir, "import")
+        # print(f"INFO: Frozen mode detected. Root: {root_dir}")
     else:
+        # --- Chay o che do development (start.bat) ---
+        # Duong dan goc la thu muc goc cua du an
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         modules_dir = os.path.join(project_root, "app", "module")
+        import_dir = os.path.join(project_root, "app", "import")
+        # print(f"INFO: Development mode detected. Root: {project_root}")
 
+    # Them thu muc module vao sys.path neu no ton tai
     if os.path.exists(modules_dir) and modules_dir not in sys.path:
         sys.path.insert(0, modules_dir)
+        # print(f"INFO: Added to sys.path: {modules_dir}")
+
+    # Them thu muc import vao sys.path neu no ton tai
+    if os.path.exists(import_dir) and import_dir not in sys.path:
+        sys.path.insert(0, import_dir)
+        # print(f"INFO: Added to sys.path: {import_dir}")
 
 
 def _launch_kernel():
@@ -78,6 +97,7 @@ def main():
             self.setWindowTitle(config.APP_NAME)
             self.notebooks_path = config.NOTEBOOKS_DIR
             self.modules_path = config.MODULES_DIR
+            self.import_path = config.IMPORT_DIR
             self.available_notebook_cards = {}
             self.highlighted_available = []
             self.sections = {}

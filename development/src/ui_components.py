@@ -35,9 +35,41 @@ from PyQt6.QtGui import (
     QBrush,
     QPen,
     QTextCursor,
+    QWheelEvent,
 )
 import config
 import functions
+
+
+class CustomSpinBox(QSpinBox):
+    """
+    QSpinBox tùy chỉnh với hai cải tiến:
+    1. Ngăn chặn việc chọn văn bản (bôi đen) khi lăn chuột.
+    2. Tùy chọn hiển thị số với số 0 ở đầu (ví dụ: 05, 08).
+    """
+
+    def __init__(self, padded_display=False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._padded_display = padded_display
+
+    def textFromValue(self, value):
+        """Định dạng văn bản hiển thị."""
+        if self._padded_display:
+            return f"{value:02d}"
+        return super().textFromValue(value)
+
+    def wheelEvent(self, event: QWheelEvent | None) -> None:
+        """Xử lý sự kiện lăn chuột để ngăn chọn văn bản."""
+        if event and self.lineEdit():
+            # Hủy chọn văn bản trước khi xử lý sự kiện
+            self.lineEdit().deselect()
+
+        # Gọi hàm xử lý gốc để thay đổi giá trị
+        super().wheelEvent(event)
+
+        # Hủy chọn văn bản một lần nữa sau khi giá trị đã thay đổi
+        if self.lineEdit():
+            self.lineEdit().deselect()
 
 
 class ClickableLabel(QLabel):
@@ -201,7 +233,6 @@ class SectionNotebookCard(QFrame):
             None,
         )
         self.consecutive_error_count = 0
-        self.MAX_CONSECUTIVE_ERRORS = 99
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setObjectName("SectionCard")
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
@@ -231,7 +262,7 @@ class SectionNotebookCard(QFrame):
         mode_layout.addWidget(self.mode_combo, 1)
 
         self.delay_label = QLabel("Nghỉ (s):")
-        self.delay_spin = QSpinBox()
+        self.delay_spin = CustomSpinBox()
         self.delay_spin.setObjectName("DelaySpinBox")
         self.delay_spin.setMinimum(0)
         self.delay_spin.setMaximum(999)
@@ -244,7 +275,7 @@ class SectionNotebookCard(QFrame):
         mode_layout.addWidget(self.delay_spin)
 
         self.count_label = QLabel("Số lần:")
-        self.count_spin = QSpinBox()
+        self.count_spin = CustomSpinBox()
         self.count_spin.setObjectName("CountSpinBox")
         self.count_spin.setMinimum(1)
         self.count_spin.setMaximum(99)
@@ -347,8 +378,8 @@ class SectionNotebookCard(QFrame):
     def clear_log(self):
         self.log_console.clear()
 
-    def on_execution_finished(self):
-        if self.current_status not in ["running", "stopping", "error"]:
+    def on_execution_finished(self, was_stopped_by_error):
+        if self.current_status not in ["running", "stopping"]:
             return
 
         self.stop_total_elapsed_timer()
@@ -357,11 +388,8 @@ class SectionNotebookCard(QFrame):
         if self.current_status == "stopping":
             self.set_status("stopped")
             self.log_message_to_section("Đã dừng bắt buộc.")
-        elif self.current_status == "error":
-            pass
-        elif self.execution_mode == "count" and self.consecutive_error_count > 0:
+        elif was_stopped_by_error:
             self.set_status("error")
-            self.log_message_to_section("Có lỗi xảy ra.")
         else:
             self.set_status("success")
             final_status_was_success = True
@@ -437,11 +465,14 @@ class SectionNotebookCard(QFrame):
 
         elif msg_type == "ITERATION_START":
             iteration = content["iteration"]
-            total = content["total"]
-            log_line = f"Lần {iteration}"
-            if total:
-                log_line += f"/{total}"
-            log_line += ":"
+            total = content.get("total")
+
+            # Khôi phục định dạng log gốc
+            if self.execution_mode == "count":
+                log_line = f"Lần {total_runs}:" if "total_runs" in content else f"Lần {content['iteration']}:"
+            else:
+                log_line = f"Lần {iteration}:"
+
             self.log_message_to_section(log_line)
             cursor = self.log_console.textCursor()
             cursor.movePosition(QTextCursor.MoveOperation.StartOfLine, QTextCursor.MoveMode.KeepAnchor)
@@ -451,31 +482,31 @@ class SectionNotebookCard(QFrame):
             iteration = content["iteration"]
             cursor = self.iteration_logs.get(iteration)
 
+            duration_str = self._format_duration(content["duration"])
             if content["success"]:
                 self.consecutive_error_count = 0
-                duration_str = self._format_duration(content["duration"])
                 if cursor:
                     cursor.movePosition(QTextCursor.MoveOperation.EndOfLine)
                     cursor.insertText(f" {duration_str}")
             else:
                 self.consecutive_error_count += 1
-                error_log_text = ""
-                if self.execution_mode == "count":
-                    error_log_text = " [LỖI]"
-                else:
-                    error_log_text = f" [LỖI {self.consecutive_error_count}/{self.MAX_CONSECUTIVE_ERRORS}]"
+                # Khôi phục định dạng log lỗi gốc
+                if self.execution_mode == "continuous":
+                    error_log_text = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS}]"
+                else:  # Chế độ hữu hạn
+                    error_log_text = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS}]"
 
                 if cursor:
                     cursor.movePosition(QTextCursor.MoveOperation.EndOfLine)
-                    cursor.insertText(f"{error_log_text}")
+                    cursor.insertText(error_log_text)
 
-                if self.execution_mode == "continuous" and self.consecutive_error_count >= self.MAX_CONSECUTIVE_ERRORS:
-                    self.set_status("error")
-                    self.log_message_to_section(f"Dừng do lỗi {self.consecutive_error_count} lần.")
-                    self.stop_requested.emit(self.path)
+                # Logic dừng khi lỗi quá nhiều được xử lý trong process
+                # Không cần gọi stop_requested từ đây nữa
 
         elif msg_type == "EXECUTION_FINISHED":
-            self.on_execution_finished()
+            # Kiểm tra xem có phải dừng do lỗi không (process đã gửi thông điệp)
+            was_stopped_by_error = content if isinstance(content, bool) and not content else False
+            self.on_execution_finished(was_stopped_by_error)
 
 
 class SectionWidget(QWidget):
@@ -594,18 +625,17 @@ class SectionWidget(QWidget):
         add_schedule_layout.addWidget(self.action_combo, 1)
         add_schedule_layout.addSpacing(10)
 
-        # --- MODIFIED: Tách giờ và phút ---
         time_layout = QHBoxLayout()
         time_layout.setSpacing(2)
 
-        self.schedule_hour_spin = QSpinBox()
+        self.schedule_hour_spin = CustomSpinBox(padded_display=True)
         self.schedule_hour_spin.setRange(0, 23)
         self.schedule_hour_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
         self.schedule_hour_spin.setFixedWidth(40)
         self.schedule_hour_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.schedule_hour_spin.setObjectName("HourSpinBox")
 
-        self.schedule_minute_spin = QSpinBox()
+        self.schedule_minute_spin = CustomSpinBox(padded_display=True)
         self.schedule_minute_spin.setRange(0, 59)
         self.schedule_minute_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
         self.schedule_minute_spin.setFixedWidth(40)
@@ -622,11 +652,10 @@ class SectionWidget(QWidget):
         colon_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         colon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         time_layout.addWidget(colon_label)
-        
+
         time_layout.addWidget(self.schedule_minute_spin)
 
         add_schedule_layout.addLayout(time_layout)
-        # --- END MODIFIED ---
 
         self.add_schedule_btn = QPushButton("Thêm")
         self.add_schedule_btn.setObjectName("SetScheduleButton")
@@ -704,11 +733,9 @@ class SectionWidget(QWidget):
         schedule_id = self.schedule_counter
         action_text = self.action_combo.currentText()
 
-        # --- MODIFIED: Lấy giờ và phút từ SpinBox ---
         hour = self.schedule_hour_spin.value()
         minute = self.schedule_minute_spin.value()
         schedule_time = QTime(hour, minute)
-        # --- END MODIFIED ---
 
         action_map = {
             "Chạy Đồng Thời": "run_all_simultaneously",
@@ -742,9 +769,7 @@ class SectionWidget(QWidget):
             self.schedule_list_layout.addWidget(placeholder)
             return
 
-        # --- MODIFIED: Sắp xếp lịch hẹn theo thời gian ---
         self.schedules.sort(key=lambda s: s["time"])
-        # --- END MODIFIED ---
 
         for schedule in self.schedules:
             item_frame = QFrame()
@@ -829,7 +854,7 @@ class SectionWidget(QWidget):
 
             card = self.notebook_cards.get(path)
             if card:
-                card.on_execution_finished()
+                card.on_execution_finished(was_stopped_by_error=True)
 
     def on_card_remove_requested(self, path):
         self.notebook_remove_requested.emit(self, [path])
@@ -844,6 +869,7 @@ class SectionWidget(QWidget):
                 card.execution_count,
                 card.execution_delay,
                 self.parent_runner.modules_path,
+                self.parent_runner.import_path,
             )
 
     def run_all_simultaneously(self):

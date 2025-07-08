@@ -175,18 +175,41 @@ def get_notebook_description(path):
         return "Không thể đọc mô tả."
 
 
-def _execute_notebook_process(notebook_path, log_queue, stop_event, execution_mode, execution_count, execution_delay, modules_path):
-    # notebook_name = os.path.basename(notebook_path)
+def _execute_notebook_process(
+    notebook_path, log_queue, stop_event, execution_mode, execution_count, execution_delay, modules_path, import_path
+):
     notebook_dir = os.path.dirname(notebook_path)
 
     code_to_inject = f"""
-import sys
-import os
-modules_path = {repr(modules_path)}
-if os.path.exists(modules_path) and modules_path not in sys.path:
-    sys.path.insert(0, modules_path)
-    print(f"NBRunner: Đã thêm '{{modules_path}}' vào sys.path.")
-"""
+        import sys
+        import os
+
+        # Khối mã này cực kỳ quan trọng để file .exe hoạt động.
+        # Nó đảm bảo tiến trình kernel có thể tìm thấy tất cả các thư viện đã được đóng gói (như pandas).
+        if getattr(sys, 'frozen', False):
+            # Trong ứng dụng đã build, thư mục gốc là thư mục chứa file .exe
+            # Tất cả thư viện được PyInstaller đóng gói vào thư mục '_internal'.
+            root_dir = os.path.dirname(sys.executable)
+            internal_libs_path = os.path.join(root_dir, '_internal')
+            
+            # Thêm đường dẫn thư viện đã đóng gói vào sys.path
+            if os.path.exists(internal_libs_path) and internal_libs_path not in sys.path:
+                sys.path.insert(0, internal_libs_path)
+                print(f"NBRunner (Frozen): Added bundled libs path: {{internal_libs_path}}")
+
+        # Khối mã này đảm bảo các module tùy chỉnh của người dùng được tìm thấy.
+        # Nó nhận các đường dẫn tuyệt đối từ ứng dụng chính.
+        modules_path = {repr(modules_path)}
+        import_path = {repr(import_path)}
+
+        # Thêm thư mục 'module' vào sys.path
+        if os.path.exists(modules_path) and modules_path not in sys.path:
+            sys.path.insert(0, modules_path)
+
+        # Thêm thư mục 'import' vào sys.path
+        if os.path.exists(import_path) and import_path not in sys.path:
+            sys.path.insert(0, import_path)
+        """
 
     def run_single_notebook():
         nb = None
@@ -214,15 +237,32 @@ if os.path.exists(modules_path) and modules_path not in sys.path:
             log_queue.put(("EXECUTION_ERROR", {"details": error_details}))
             return False, nb
 
+    # Chạy lặp vô hạn
     if execution_mode == "continuous":
         iteration = 1
+        consecutive_errors = 0
         while not stop_event.is_set():
             log_queue.put(("RESET_TIMER", None))
             log_queue.put(("ITERATION_START", {"iteration": iteration, "total": None}))
             start_time = time.time()
             success, final_nb = run_single_notebook()
             duration = time.time() - start_time
-            log_queue.put(("ITERATION_END", {"iteration": iteration, "success": success, "duration": duration}))
+
+            if success:
+                consecutive_errors = 0
+            else:
+                consecutive_errors += 1
+
+            log_queue.put(
+                (
+                    "ITERATION_END",
+                    {"iteration": iteration, "success": success, "duration": duration, "consecutive_errors": consecutive_errors},
+                )
+            )
+
+            if not success and consecutive_errors >= config.MAX_CONSECUTIVE_ERRORS:
+                log_queue.put(("SECTION_LOG", f"Dừng do lỗi {consecutive_errors} lần liên tiếp."))
+                break
 
             if stop_event.is_set():
                 break
@@ -231,31 +271,55 @@ if os.path.exists(modules_path) and modules_path not in sys.path:
                 log_queue.put(("SECTION_LOG", f"Nghỉ {execution_delay}s..."))
                 time.sleep(execution_delay)
             iteration += 1
+
+    # Chạy lặp hữu hạn (chỉ tính lần thành công)
     else:
-        for i in range(execution_count):
+        successful_runs = 0
+        total_runs = 0
+        consecutive_errors = 0
+
+        while successful_runs < execution_count:
             if stop_event.is_set():
                 log_queue.put(("SECTION_LOG", "Đã hủy các lần chạy còn lại."))
                 break
 
+            total_runs += 1
             log_queue.put(("RESET_TIMER", None))
-            log_queue.put(("ITERATION_START", {"iteration": i + 1, "total": execution_count}))
+            log_queue.put(("ITERATION_START", {"iteration": total_runs, "total": execution_count, "success_count": successful_runs}))
+
             start_time = time.time()
             success, final_nb = run_single_notebook()
             duration = time.time() - start_time
-            log_queue.put(("ITERATION_END", {"iteration": i + 1, "success": success, "duration": duration}))
+
+            if success:
+                successful_runs += 1
+                consecutive_errors = 0
+            else:
+                consecutive_errors += 1
+
+            log_queue.put(
+                (
+                    "ITERATION_END",
+                    {"iteration": total_runs, "success": success, "duration": duration, "consecutive_errors": consecutive_errors},
+                )
+            )
+
+            if not success and consecutive_errors >= config.MAX_CONSECUTIVE_ERRORS:
+                log_queue.put(("SECTION_LOG", f"Dừng do lỗi {consecutive_errors} lần liên tiếp."))
+                break
 
     log_queue.put(("EXECUTION_FINISHED", True))
 
 
 def run_notebook_with_individual_logging(
-    notebook_path, running_processes, card, execution_mode, execution_count, execution_delay, modules_path
+    notebook_path, running_processes, card, execution_mode, execution_count, execution_delay, modules_path, import_path
 ):
     if notebook_path in running_processes:
         return
 
     log_queue = Queue()
     stop_event = Event()
-    process_args = (notebook_path, log_queue, stop_event, execution_mode, execution_count, execution_delay, modules_path)
+    process_args = (notebook_path, log_queue, stop_event, execution_mode, execution_count, execution_delay, modules_path, import_path)
     process = Process(target=_execute_notebook_process, args=process_args, daemon=True)
     running_processes[notebook_path] = {"process": process, "stop_event": stop_event, "queue": log_queue, "card": card}
 

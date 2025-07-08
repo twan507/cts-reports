@@ -25,9 +25,11 @@ ICON_PATH = os.path.join(ROOT_DIR, "development", "logo.ico")
 if getattr(sys, "frozen", False):
     MODULES_DIR = os.path.join(ROOT_DIR, "module")
     NOTEBOOKS_DIR = os.path.join(ROOT_DIR, "notebook")
+    IMPORT_DIR = os.path.join(ROOT_DIR, "import")
 else:
     MODULES_DIR = os.path.join(ROOT_DIR, "app", "module")
     NOTEBOOKS_DIR = os.path.join(ROOT_DIR, "app", "notebook")
+    IMPORT_DIR = os.path.join(ROOT_DIR, "app", "import")
 
 APP_BUILD_DIR = os.path.join(ROOT_DIR, "app")
 
@@ -45,3 +47,4 @@ SPLITTER_INITIAL_SIZES = [NOTEBOOK_LIST_INITIAL_WIDTH]
 # ===== CÀI ĐẶT LOGGING (MỚI) =====
 LOG_TITLE_NOTEBOOK_PRINT = "Output từ '{nb_name}' tại '{section_name}'"
 LOG_TITLE_NOTEBOOK_ERROR = "Lỗi khi chạy '{nb_name}' tại '{section_name}'"
+MAX_CONSECUTIVE_ERRORS = 99
