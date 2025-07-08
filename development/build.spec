@@ -63,7 +63,7 @@ ignore_list = {
     'PyQt6', 'PyQt6-sip',
     'nbformat', 'debugpy', 'plotly',
     'pyinstaller-hooks-contrib',
-    'fiinquantx',
+    'fiinquantx'
 }
 
 imports_from_reqs = []

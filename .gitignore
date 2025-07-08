@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Exception: Keep import_env.pyc
+!import_env.pyc
+
 # C extensions
 *.so
 
@@ -121,9 +124,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
-env/
 venv/
-ENV/
 env.bak/
 venv.bak/
 

@@ -1,17 +1,21 @@
 import pymysql
 import pyodbc
-import os
 from pymongo import MongoClient
 from sqlalchemy import create_engine, text
-from dotenv import load_dotenv
 
-load_dotenv()
+# Import module giải mã an toàn của chúng ta
+from import_env import load_env
 
-mongo_client = MongoClient(os.environ.get("DEV_MONGO_URI"))
+# --- THAY ĐỔI Ở ĐÂY ---
+# Sử dụng hàm load_env() để lấy các biến môi trường đã được giải mã
+
+# Kết nối MongoDB
+mongo_client = MongoClient(load_env("DEV_MONGO_URI"))
 stock_db = mongo_client["stock_db"]
 ref_db = mongo_client["ref_db"]
 
-vsuccess_engine = create_engine(os.environ.get("VSUCCESS_URI"))
-twan_engine = create_engine(os.environ.get("TWAN_URI"))
-cts_engine = create_engine(os.environ.get("CTS_URI"))
-t2m_engine = create_engine(os.environ.get("T2M_URI"))
+# Tạo các engine kết nối đến các database khác nhau
+vsuccess_engine = create_engine(load_env("VSUCCESS_URI"))
+twan_engine = create_engine(load_env("TWAN_URI"))
+cts_engine = create_engine(load_env("CTS_URI"))
+t2m_engine = create_engine(load_env("T2M_URI"))

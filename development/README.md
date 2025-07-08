@@ -22,6 +22,12 @@ build.bat
 ```
 *Sử dụng `development/build.spec` để tạo ứng dụng standalone trong thư mục `app/`.*
 
+### Kích hoạt và thoát môi trường ảo
+```cmd
+development\venv\Scripts\activate.bat
+deactivate
+```
+
 ## 📁 Cấu trúc
 ```
 /nbrunner
