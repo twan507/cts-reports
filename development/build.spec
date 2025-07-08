@@ -2,34 +2,28 @@
 
 # =============================================================================
 #  File build.spec de build ung dung theo kieu ONE-FOLDER (mot thu muc)
+#  PHIÊN BẢN SỬA LỖI CUỐI CÙNG - DÙNG HOOKS CHO THƯ VIỆN CỨNG ĐẦU
 # =============================================================================
 
 import multiprocessing
 import sys
-from os.path import join
 import os
 import re
+from os.path import join, isdir
 
-# Su dung hook 'collect_all' de thu thap toan bo du lieu cua cac goi phuc tap
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_submodules, collect_data_files
 
 # =============================================================================
-# === KHỐI 1 ĐÃ ĐƯỢC THAY THẾ BẰNG LOGIC "THÔNG MINH" HƠN ===
+# KHỐI 1: LOGIC TÌM DLL CỦA CONDA (GIỮ NGUYÊN)
 # =============================================================================
-# Khởi tạo một biến để lưu đường dẫn DLL của Conda nếu tìm thấy
 conda_dll_path = ''
-
-# Sử dụng sys.base_prefix để luôn tham chiếu đến môi trường Python gốc,
-# kể cả khi đang chạy từ bên trong một môi trường ảo (venv).
 base_python_dir = sys.base_prefix
 
 print(f"INFO: Môi trường Python gốc (sys.base_prefix): {base_python_dir}")
 print(f"INFO: Môi trường Python hiện tại (sys.prefix): {sys.prefix}")
 
-# Từ môi trường gốc, xây dựng đường dẫn tới thư mục Library/bin của Conda
 potential_path = os.path.join(base_python_dir, 'Library', 'bin')
 
-# Kiểm tra xem đường dẫn đó có thực sự tồn tại và là một thư mục hay không.
 if os.path.isdir(potential_path):
     print(f"INFO: Phat hien moi truong goc la Conda. Them duong dan DLL: {potential_path}")
     conda_dll_path = potential_path
@@ -42,30 +36,34 @@ import config
 
 multiprocessing.freeze_support()
 
-# <<< BẮT ĐẦU ĐOẠN CODE ĐÃ SỬA LỖI >>>
+# =============================================================================
+# KHỐI 2: TỰ ĐỘNG THÊM THƯ VIỆN TỪ REQUIREMENTS.TXT (GIỮ NGUYÊN)
 # =============================================================================
 print("--- Dang tu dong them thu vien tu requirements.txt ---")
 requirements_path = join(SPECPATH, '..', 'development', 'requirements.txt')
 
-# TAO MOT BANG ANH XA DE "DICH" TEN GOI THANH TEN MODULE
 package_to_module_map = {
     'jupyter-client': 'jupyter_client',
     'jupyter-core': 'jupyter_core',
-    'pandas-ta': 'pandas_ta',
     'beautifulsoup4': 'bs4',
-    'pymysQL': 'pymysql',
     'google-generativeai': 'google.generativeai',
+    'ipython': 'IPython',
+    'pandas-ta': 'pandas_ta',
+    'Pillow': 'PIL',
+    'PyMySQL': 'pymysql',
     'python-dateutil': 'dateutil',
-    'python-dotenv': 'dotenv'
-    # Cac goi khac co the them vao day neu can
+    'python-dotenv': 'dotenv',
+    'PyYAML': 'yaml',
+    'scikit-learn': 'sklearn',
+    'fpdf2': 'fpdf',
 }
 
-# Cac goi nay khong can them vao hidden-imports vi da duoc xu ly theo cach khac
-# hoac la goi dung cho moi truong build, khong phai runtime.
 ignore_list = {
-    'setuptools', 'wheel', 'pywin32', 'PyQt6-sip', 'send2trash', 
-    'pyyaml', 'tabulate', 'traitlets', 'pyinstaller', 
-    'nbformat', 'debugpy' # nbformat va debugpy da duoc xu ly boi collect_all
+    'setuptools', 'wheel', 'pywin32', 'pyinstaller', 'pip',
+    'PyQt6', 'PyQt6-sip',
+    'nbformat', 'debugpy', 'plotly',
+    'pyinstaller-hooks-contrib',
+    'fiinquantx',
 }
 
 imports_from_reqs = []
@@ -74,59 +72,68 @@ try:
         lines = f.readlines()
     for line in lines:
         line = line.strip()
-        if not line or line.startswith('#'):
+        if not line or line.startswith('#') or line.startswith('--'):
             continue
+        
         package_name = re.split(r'[=<>~]', line)[0].strip()
+        
         if package_name and package_name not in ignore_list:
-            # SU DUNG BANG ANH XA: Neu ten goi co trong map, lay ten module.
-            # Neu khong, mac dinh ten module = ten goi.
             module_name = package_to_module_map.get(package_name, package_name)
             print(f"  -> Phat hien: {package_name}, Them module: {module_name}")
-            imports_from_reqs.append(module_name)
+            if module_name not in imports_from_reqs:
+                 imports_from_reqs.append(module_name)
+
 except FileNotFoundError:
     print(f"WARNING: Khong tim thay file '{requirements_path}'. Bo qua buoc them tu dong.")
 print("--- Hoan thanh them thu vien tu dong ---\n")
 # =============================================================================
-# <<< KẾT THÚC ĐOẠN CODE ĐÃ SỬA LỖI >>>
 
 
 block_cipher = None
 
-# --- THU THAP CAC GOI CAN THIET ---
+# --- THU THẬP CÁC GÓI PHỨC TẠP BẰNG HOOKS ---
+datas_nbformat, binaries_nbformat, hiddenimports_nbformat = collect_all('nbformat')
+datas_debugpy, binaries_debugpy, hiddenimports_debugpy = collect_all('debugpy')
+datas_plotly, _, _ = collect_all('plotly')
 
-# 1. Thu thap toan bo du lieu va module an cua nbformat
-nbformat_datas, nbformat_binaries, nbformat_hiddenimports = collect_all('nbformat')
+## <<< SỬA LỖI: Sửa lại cách gọi hàm cho đúng
+datas_fpdf = collect_data_files('fpdf')
 
-# 2. Thu thap toan bo goi 'debugpy'
-debugpy_datas, debugpy_binaries, debugpy_hiddenimports = collect_all('debugpy')
+hiddenimports_fiinquantx = collect_submodules('fiinquantx')
+print(f"INFO: Phat hien {len(hiddenimports_fiinquantx)} module con cho 'fiinquantx' bang collect_submodules.")
 
-# 3. Dinh nghia cac module an can thiet khac mot cach chinh xac
+
+# --- ĐỊNH NGHĨA CÁC MODULE ẨN CẦN THIẾT ---
 required_hiddenimports = [
-    'xml.parsers.expat',
-    'xml.etree.ElementTree',
-    'plistlib',
+    'sqlalchemy.dialects.mysql',
 ]
 
-# 4. Tong hop lai cac thong tin
-all_hiddenimports = required_hiddenimports + nbformat_hiddenimports + debugpy_hiddenimports + imports_from_reqs
+# --- TỔNG HỢP CÁC THÀNH PHẦN ---
+all_hiddenimports = (
+    required_hiddenimports +
+    hiddenimports_nbformat +
+    hiddenimports_debugpy +
+    imports_from_reqs + 
+    hiddenimports_fiinquantx
+)
 
-all_datas = [('logo.ico', '.')] + nbformat_datas + debugpy_datas
-all_binaries = nbformat_binaries + debugpy_binaries
+all_datas = [
+    ('logo.ico', '.'),
+] + datas_nbformat + datas_debugpy + datas_plotly + datas_fpdf
 
-# === THÊM CÁC DLL QUAN TRỌNG TỪ CONDA (NẾU CÓ) ===
+all_binaries = (
+    binaries_nbformat + 
+    binaries_debugpy
+)
+
+# =============================================================================
+# KHỐI 3: THÊM CÁC DLL QUAN TRỌNG TỪ CONDA (GIỮ NGUYÊN)
+# =============================================================================
 if conda_dll_path:
-    # Danh sách các DLL thường gây lỗi trong môi trường Conda
-    # Dựa trên lỗi pyexpat và các lỗi tiềm ẩn khác
     important_dlls = [
-        'libcrypto-3-x64.dll', 
-        'libssl-3-x64.dll',  
-        'liblzma.dll',      # Phụ thuộc của lzma
-        'sqlite3.dll',      # Phụ thuộc của sqlite3
-        'tk86t.dll',        # Phụ thuộc của tkinter
-        'tcl86t.dll',       # Phụ thuộc của tkinter
-        'libexpat.dll',    # Phụ thuộc của pyexpat (gây ra lỗi của bạn)
-        'libbz2.dll',       # Phụ thuộc của _bz2.pyd (tên file trên Windows có thể là libbz2.dll)
-        'ffi.dll'           # Phụ thuộc của _ctypes.pyd (cực kỳ quan trọng)
+        'libcrypto-3-x64.dll', 'libssl-3-x64.dll', 'liblzma.dll',
+        'sqlite3.dll', 'tk86t.dll', 'tcl86t.dll', 'libexpat.dll',
+        'libbz2.dll', 'ffi.dll'
     ]
     
     print("INFO: Them cac file DLL quan trong tu Conda...")
@@ -136,15 +143,17 @@ if conda_dll_path:
             print(f"  -> Tim thay va them: {dll}")
             all_binaries.append((dll_path, '.'))
         else:
-            print(f"  -> Canh bao: Khong tim thay {dll}")
-# ====================================================
+            print(f"  -> Canh bao: Khong tim thay {dll} tai {conda_dll_path}")
+# =============================================================================
+
+site_packages_path = os.path.join(sys.prefix, 'Lib', 'site-packages')
 
 a = Analysis(
     ['src/main.py'],
-    pathex=[],
+    pathex=[site_packages_path],
     binaries=all_binaries,
     datas=all_datas,
-    hiddenimports=all_hiddenimports,
+    hiddenimports=list(set(all_hiddenimports)),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

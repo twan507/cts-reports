@@ -28,7 +28,7 @@ echo Don dep cac thu muc cu...
 if exist "build" rmdir /s /q "build"
 if exist "dist" rmdir /s /q "dist"
 
-REM Chi xoa file .exe va thu muc _internal cu trong app
+REM Chi xoa file .exe va thu muc _internal cu trong thu muc dich
 if exist "%APP_BUILD_DIR%\%EXE_FILE_NAME%" del /f /q "%APP_BUILD_DIR%\%EXE_FILE_NAME%"
 if exist "%APP_BUILD_DIR%\_internal" rmdir /s /q "%APP_BUILD_DIR%\_internal"
 
@@ -42,35 +42,42 @@ if %errorlevel% neq 0 (
 )
 echo PyInstaller da tao thu muc ung dung thanh cong.
 
-REM *** SUA LOGIC: Build truc tiep vao thu muc app ***
+REM *** LOGIC MOI: Kiem tra loi truoc khi don dep ***
 echo Chuan bi thu muc phan phoi cuoi cung...
 
 REM Tao thu muc app neu chua ton tai
 if not exist "%APP_BUILD_DIR%" mkdir "%APP_BUILD_DIR%"
 
 REM Di chuyen file .exe tu 'dist\%APP_NAME%' vao thu muc app
-if exist "dist\%APP_NAME%\%EXE_FILE_NAME%" (
-    move /Y "dist\%APP_NAME%\%EXE_FILE_NAME%" "%APP_BUILD_DIR%\" > nul
-    echo Da di chuyen file '%EXE_FILE_NAME%' vao thu muc '%APP_BUILD_DIR%'.
-) else (
+if not exist "dist\%APP_NAME%\%EXE_FILE_NAME%" (
     echo Loi: Khong tim thay file executable 'dist\%APP_NAME%\%EXE_FILE_NAME%'.
-	goto :deactivate_and_end
+    goto :deactivate_and_end
 )
+move /Y "dist\%APP_NAME%\%EXE_FILE_NAME%" "%APP_BUILD_DIR%\" > nul
+if %errorlevel% neq 0 (
+    echo Loi: Khong the di chuyen file '%EXE_FILE_NAME%'. Giu lai thu muc 'dist' de kiem tra.
+    goto :deactivate_and_end
+)
+echo Da di chuyen file '%EXE_FILE_NAME%' vao thu muc '%APP_BUILD_DIR%'.
 
-REM Di chuyen thu muc _internal tu 'dist\%APP_NAME%' vao thu muc app (giu nguyen ten)
-if exist "dist\%APP_NAME%\_internal" (
-    move /Y "dist\%APP_NAME%\_internal" "%APP_BUILD_DIR%\_internal" > nul
-    echo Da di chuyen thu muc '_internal' vao '%APP_BUILD_DIR%'.
-) else (
+
+REM Di chuyen thu muc _internal tu 'dist\%APP_NAME%' vao thu muc app
+if not exist "dist\%APP_NAME%\_internal" (
     echo Loi: Khong tim thay thu muc '_internal' trong 'dist\%APP_NAME%'.
-	goto :deactivate_and_end
+    goto :deactivate_and_end
 )
+move /Y "dist\%APP_NAME%\_internal" "%APP_BUILD_DIR%\_internal" > nul
+if %errorlevel% neq 0 (
+    echo Loi: Khong the di chuyen thu muc '_internal'. Giu lai thu muc 'dist' de kiem tra.
+    goto :deactivate_and_end
+)
+echo Da di chuyen thu muc '_internal' vao '%APP_BUILD_DIR%'.
 
-REM Don dep cac file va thu muc tam
+
+REM Don dep cac file va thu muc tam CHI KHI THANH CONG
 echo Don dep...
 if exist "build" rmdir /s /q "build"
 if exist "dist" rmdir /s /q "dist"
-
 
 echo.
 echo =========================================
@@ -92,4 +99,4 @@ exit /b %errorlevel%
 
 :end
 pause
-exit /b %errorlevel%
+exit /b 1
