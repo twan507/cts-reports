@@ -8,4 +8,6 @@ import google.generativeai as genai
 import together
 
 # === Data Analysis & Visualization ===
-import FiinQuantX as fq
+from fpdf import FPDF
+from fpdf.enums import XPos, YPos
+import plotly.express as px

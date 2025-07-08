@@ -99,8 +99,10 @@ datas_plotly, _, _ = collect_all('plotly')
 ## <<< SỬA LỖI: Sửa lại cách gọi hàm cho đúng
 datas_fpdf = collect_data_files('fpdf')
 
-hiddenimports_fiinquantx = collect_submodules('fiinquantx')
-print(f"INFO: Phat hien {len(hiddenimports_fiinquantx)} module con cho 'fiinquantx' bang collect_submodules.")
+# TẠM THỜI VÔ HIỆU HÓA FIINQUANTX - BỎ COMMENT ĐỂ BẬT LẠI
+# hiddenimports_fiinquantx = collect_submodules('fiinquantx')
+# print(f"INFO: Phat hien {len(hiddenimports_fiinquantx)} module con cho 'fiinquantx' bang collect_submodules.")
+hiddenimports_fiinquantx = []  # Tạm thời để rỗng
 
 
 # --- ĐỊNH NGHĨA CÁC MODULE ẨN CẦN THIẾT ---

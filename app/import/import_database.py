@@ -1,13 +1,6 @@
-import pymysql
-import pyodbc
 from pymongo import MongoClient
 from sqlalchemy import create_engine, text
-
-# Import module giải mã an toàn của chúng ta
 from import_env import load_env
-
-# --- THAY ĐỔI Ở ĐÂY ---
-# Sử dụng hàm load_env() để lấy các biến môi trường đã được giải mã
 
 # Kết nối MongoDB
 mongo_client = MongoClient(load_env("DEV_MONGO_URI"))

@@ -19,10 +19,10 @@ import pandas_ta as ta
 # === Tiện ích khác (Utilities) ===
 import openpyxl
 import dateutil
-
-
-# Tải các biến môi trường từ tệp .env
-load_dotenv()
+import os
+import requests
+import zipfile
+import io
 
 # Bỏ qua các cảnh báo không quan trọng để giữ cho output sạch sẽ
 warnings.filterwarnings("ignore")

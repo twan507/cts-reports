@@ -18,6 +18,7 @@ PyQt6-sip==13.6.0
 # === Packaging ===
 pyinstaller==6.7.0
 pywin32==306
+cryptography==45.0.5
 
 # === Data Analysis ===
 numpy==1.26.4
@@ -48,8 +49,9 @@ paramiko==2.8.1
 # === PDF ===
 fpdf2==2.8.3
 kaleido==1.0.0
+plotly==6.2.0
 
-# === FiinQuantx ===
-fiinquantx
---extra-index-url https://fiinquant.github.io/fiinquantx/simple
-# pip install --upgrade --extra-index-url https://fiinquant.github.io/fiinquantx/simple fiinquantx
+# # === FiinQuantx ===
+# fiinquantx
+# --extra-index-url https://fiinquant.github.io/fiinquantx/simple
+# # pip install --upgrade --extra-index-url https://fiinquant.github.io/fiinquantx/simple fiinquantx
