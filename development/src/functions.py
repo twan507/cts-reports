@@ -260,7 +260,7 @@ def _execute_notebook_process(
                 )
             )
 
-            if not success and consecutive_errors >= config.MAX_CONSECUTIVE_ERRORS:
+            if not success and consecutive_errors >= config.MAX_CONSECUTIVE_ERRORS_CONTINOUS:
                 log_queue.put(("SECTION_LOG", f"Dừng do lỗi {consecutive_errors} lần liên tiếp."))
                 break
 
@@ -304,7 +304,7 @@ def _execute_notebook_process(
                 )
             )
 
-            if not success and consecutive_errors >= config.MAX_CONSECUTIVE_ERRORS:
+            if not success and consecutive_errors >= config.MAX_CONSECUTIVE_ERRORS_FINITE:
                 log_queue.put(("SECTION_LOG", f"Dừng do lỗi {consecutive_errors} lần liên tiếp."))
                 break
 

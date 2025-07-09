@@ -15,12 +15,13 @@ def get_root_dir():
         project_root = os.path.dirname(development_dir)
         return project_root
 
-
-ROOT_DIR = get_root_dir()
-DEBUG = False
 APP_NAME = "Report Generator"
 EXE_FILE_NAME = "ReportGenerator.exe"
+JUPYTER_KERNEL_NAME = f"{APP_NAME.lower().replace(' ', '-')}-venv"
+
+ROOT_DIR = get_root_dir()
 ICON_PATH = os.path.join(ROOT_DIR, "development", "logo.ico")
+DEBUG = False
 
 if getattr(sys, "frozen", False):
     MODULES_DIR = os.path.join(ROOT_DIR, "module")
@@ -47,4 +48,5 @@ SPLITTER_INITIAL_SIZES = [NOTEBOOK_LIST_INITIAL_WIDTH]
 # ===== CÀI ĐẶT LOGGING (MỚI) =====
 LOG_TITLE_NOTEBOOK_PRINT = "Output từ '{nb_name}' tại '{section_name}'"
 LOG_TITLE_NOTEBOOK_ERROR = "Lỗi khi chạy '{nb_name}' tại '{section_name}'"
-MAX_CONSECUTIVE_ERRORS = 99
+MAX_CONSECUTIVE_ERRORS_CONTINOUS = 99
+MAX_CONSECUTIVE_ERRORS_FINITE = 5

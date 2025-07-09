@@ -52,13 +52,18 @@ REM == BUOC QUAN TRONG NHAT DE SUA LOI "KERNEL DIED" TRONG MOI TRUONG DEV ==
 REM ========================================================================
 echo.
 echo Dang ky moi truong ao nay voi Jupyter...
-REM Lenh nay se tao mot kernel ten la "nbrunner-venv" ma nbconvert co the tim thay
-python -m ipykernel install --user --name=nbrunner-venv --display-name="Python (NBRunner Project)"
+
+REM Doc ten APP_NAME va KERNEL_NAME tu config.py
+for /f "tokens=*" %%a in ('python -c "import sys; sys.path.append('development\\src'); import config; print(config.APP_NAME)"') do set APP_NAME=%%a
+for /f "tokens=*" %%a in ('python -c "import sys; sys.path.append('development\\src'); import config; print(config.JUPYTER_KERNEL_NAME)"') do set KERNEL_NAME=%%a
+
+echo Dang ky kernel duy nhat cho du an voi ten: %KERNEL_NAME%
+python -m ipykernel install --user --name=%KERNEL_NAME% --display-name="Python (%APP_NAME%)"
 if %errorlevel% neq 0 (
     echo Loi: Khong the dang ky kernel voi Jupyter.
     goto :deactivate_and_end
 )
-echo Da dang ky kernel 'nbrunner-venv' thanh cong.
+echo Da dang ky kernel '%KERNEL_NAME%' thanh cong.
 echo.
 REM ========================================================================
 

@@ -492,9 +492,9 @@ class SectionNotebookCard(QFrame):
                 self.consecutive_error_count += 1
                 # Khôi phục định dạng log lỗi gốc
                 if self.execution_mode == "continuous":
-                    error_log_text = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS}]"
+                    error_log_text = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS_CONTINOUS}]"
                 else:  # Chế độ hữu hạn
-                    error_log_text = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS}]"
+                    error_log_text = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS_FINITE}]"
 
                 if cursor:
                     cursor.movePosition(QTextCursor.MoveOperation.EndOfLine)
