@@ -1,7 +1,7 @@
 # === Web Scraping & Parsing ===
 import requests
 import feedparser
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 # === AI & Generative ===
 import google.generativeai as genai
