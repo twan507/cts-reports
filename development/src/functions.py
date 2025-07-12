@@ -324,11 +324,3 @@ def run_notebook_with_individual_logging(
     running_processes[notebook_path] = {"process": process, "stop_event": stop_event, "queue": log_queue, "card": card}
 
     process.start()
-
-
-def clear_all_card_selections(available_notebook_cards, highlighted_available):
-    """Bỏ chọn tất cả notebook cards"""
-    for path in list(highlighted_available):
-        if path in available_notebook_cards:
-            available_notebook_cards[path].set_highlighted(False)
-    highlighted_available.clear()

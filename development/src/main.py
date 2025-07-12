@@ -81,7 +81,7 @@ def main():
         QGroupBox,
         QSplitter,
     )
-    from PyQt6.QtCore import Qt
+    from PyQt6.QtCore import Qt, QTimer, QTime
     from PyQt6.QtGui import QCloseEvent
     import time
 
@@ -89,7 +89,7 @@ def main():
     import config
     import functions
     import styles
-    from ui_components import NotebookCard, SectionWidget
+    from ui_components import NotebookCard, SectionWidget, ScheduleManagerWidget
 
     class NotebookRunner(QMainWindow):
         def __init__(self):
@@ -103,21 +103,38 @@ def main():
             self.sections = {}
             self.section_counter = 0
             self.available_container = None
+            self.schedule_manager_widget = None
             self.set_window_icon()
             self.running_processes = {}
             self.setup_ui()
             self.apply_stylesheet()
             self._update_window_minimum_size()
 
+            self.central_schedule_timer = QTimer(self)
+            self.central_schedule_timer.timeout.connect(self.check_recurring_tasks)
+            self.central_schedule_timer.start(1000)
+
         def set_window_icon(self):
             functions.setup_window_icon(self)
 
+        # MODIFIED: Updated to account for the schedule manager's visibility
         def _calculate_minimum_window_size(self):
-            min_width = config.NOTEBOOK_LIST_MIN_WIDTH
-            min_height = config.WINDOW_MIN_HEIGHT
+            # Start with the width of the notebook list
+            min_width = config.NOTEBOOK_LIST_WIDTH
+
+            # Add width for the schedule manager if it is visible
+            if self.schedule_manager_widget and self.schedule_manager_widget.isVisible():
+                min_width += config.SCHEDULE_MANAGER_WIDTH
+
+            # Add width for all active sections
             if hasattr(self, "sections"):
-                min_width += len(self.sections) * config.SECTION_MIN_WIDTH
-            return (min_width + 50), min_height
+                min_width += len(self.sections) * config.RUN_SECTION_WIDTH
+
+            # Add some padding
+            min_width += 50
+
+            min_height = config.WINDOW_MIN_HEIGHT
+            return (min_width, min_height)
 
         def _update_window_minimum_size(self):
             min_width, min_height = self._calculate_minimum_window_size()
@@ -132,6 +149,11 @@ def main():
             self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
             self.main_splitter.setObjectName("MainSplitter")
             self.main_splitter.setHandleWidth(8)
+
+            self.schedule_manager_widget = ScheduleManagerWidget(self)
+            self.schedule_manager_widget.section_close_requested.connect(self.toggle_schedule_manager)
+            self.schedule_manager_widget.setVisible(False)
+            self.main_splitter.addWidget(self.schedule_manager_widget)
 
             self.available_container = QWidget()
             available_container_layout = QVBoxLayout(self.available_container)
@@ -157,29 +179,34 @@ def main():
             controls_layout = QVBoxLayout(controls_group)
             controls_layout.setContentsMargins(5, 10, 5, 5)
             controls_layout.setSpacing(8)
+
             refresh_button = QPushButton("Làm Mới NoteBooks")
             refresh_button.setObjectName("RefreshButton")
+            refresh_button.setCursor(Qt.CursorShape.PointingHandCursor)
             refresh_button.clicked.connect(self.refresh_notebook_list)
 
-            # MODIFIED: Add "Select All" button and its logic
-            select_all_button = QPushButton("Chọn/Bỏ Chọn Tất Cả")
-            select_all_button.setObjectName("SelectAllButton")
-            select_all_button.clicked.connect(self.toggle_select_all_available)
+            manage_tasks_button = QPushButton("Tác Vụ Hẹn Giờ")
+            manage_tasks_button.setObjectName("ManageTasksButton")
+            manage_tasks_button.setCursor(Qt.CursorShape.PointingHandCursor)
+            manage_tasks_button.clicked.connect(self.toggle_schedule_manager)
 
             add_section_button = QPushButton("Thêm Section Mới")
             add_section_button.setObjectName("AddSectionButton")
+            add_section_button.setCursor(Qt.CursorShape.PointingHandCursor)
             add_section_button.clicked.connect(self.create_new_section)
 
             controls_layout.addWidget(refresh_button)
-            controls_layout.addWidget(select_all_button)
+            controls_layout.addWidget(manage_tasks_button)
             controls_layout.addWidget(add_section_button)
 
             available_container_layout.addWidget(available_group)
             available_container_layout.addWidget(controls_group)
-            self.available_container.setMinimumWidth(config.NOTEBOOK_LIST_MIN_WIDTH)
+            self.available_container.setMinimumWidth(config.NOTEBOOK_LIST_WIDTH)
             self.main_splitter.addWidget(self.available_container)
-            self.main_splitter.setSizes(config.SPLITTER_INITIAL_SIZES)
-            self.main_splitter.setStretchFactor(0, 1)
+
+            self.main_splitter.setStretchFactor(0, 0)
+            self.main_splitter.setStretchFactor(1, 1)
+
             main_layout.addWidget(self.main_splitter)
             self.refresh_notebook_list()
             self._update_window_minimum_size()
@@ -210,32 +237,6 @@ def main():
 
         def _on_card_click(self, path):
             functions.handle_card_click(path, self.available_notebook_cards, self.highlighted_available)
-
-        def toggle_select_all_available(self):
-            all_paths = list(self.available_notebook_cards.keys())
-            if not all_paths:
-                return
-
-            # If the number of highlighted cards is less than total, select all. Otherwise, deselect all.
-            select_all = len(self.highlighted_available) < len(all_paths)
-
-            for path in all_paths:
-                card = self.available_notebook_cards.get(path)
-                if not card:
-                    continue
-
-                if select_all:
-                    if not card.is_highlighted:
-                        card.set_highlighted(True)
-                        self.highlighted_available.append(path)
-                else:
-                    if card.is_highlighted:
-                        card.set_highlighted(False)
-                        if path in self.highlighted_available:
-                            self.highlighted_available.remove(path)
-            # Ensure consistency
-            if not select_all:
-                self.highlighted_available.clear()
 
         def refresh_notebook_list(self):
             functions.refresh_notebook_list(self)
@@ -270,6 +271,8 @@ def main():
             self.sections[section_id] = section_widget
             self._update_window_minimum_size()
             self.log_message_to_cmd(f"Đã tạo section mới: {section_name}")
+            if self.schedule_manager_widget:
+                self.schedule_manager_widget.update_section_list(self.sections)
 
         def move_notebooks_to_section(self, section_widget, paths_to_move):
             for path in paths_to_move:
@@ -306,6 +309,48 @@ def main():
                 del self.sections[section_id]
             self._update_window_minimum_size()
             self.log_message_to_cmd(f"Đã đóng section: {section_widget.section_name}")
+            if self.schedule_manager_widget:
+                self.schedule_manager_widget.update_section_list(self.sections)
+
+        # MODIFIED: Logic now also updates the window's minimum size
+        def toggle_schedule_manager(self):
+            if self.schedule_manager_widget:
+                is_visible = self.schedule_manager_widget.isVisible()
+                self.schedule_manager_widget.setVisible(not is_visible)
+                if not is_visible:
+                    self.schedule_manager_widget.update_section_list(self.sections)
+                # Recalculate and set the new minimum window size
+                self._update_window_minimum_size()
+
+        def check_recurring_tasks(self):
+            if not self.schedule_manager_widget or not self.schedule_manager_widget.isVisible():
+                return
+
+            tasks = self.schedule_manager_widget.get_tasks()
+            now = QTime.currentTime()
+
+            for task_id, task_info in list(tasks.items()):
+                if task_info["time"].hour() == now.hour() and task_info["time"].minute() == now.minute():
+                    if task_info.get("last_run_time") == now.toString("HH:mm"):
+                        continue
+
+                    target_section_id = task_info["section_id"]
+                    target_section = self.sections.get(target_section_id)
+
+                    if target_section:
+                        action_key = task_info["action_key"]
+                        if hasattr(target_section, action_key):
+                            getattr(target_section, action_key)()
+                            log_message = (
+                                f"Tác vụ định kỳ: Thực thi '{task_info['action_text']}' "
+                                f"cho '{target_section.section_name}' lúc {now.toString('HH:mm')}"
+                            )
+                            self.log_message_to_cmd(log_message)
+
+                            self.schedule_manager_widget.mark_task_as_run(task_id, now.toString("HH:mm"))
+                else:
+                    if task_info.get("last_run_time"):
+                        self.schedule_manager_widget.reset_task_run_marker(task_id)
 
     app = QApplication(sys.argv)
     functions.setup_application_icon(app)
@@ -316,7 +361,7 @@ def main():
             screen_geometry = screen.availableGeometry()
             window_geometry = window.frameGeometry()
             window_geometry.moveCenter(screen_geometry.center())
-            final_x = max(0, window_geometry.topLeft().x())
+            final_x = max(0, window_geometry.topLeft().x() - 300)
             final_y = max(0, window_geometry.topLeft().y())
             window.move(final_x, final_y)
     except Exception as e:

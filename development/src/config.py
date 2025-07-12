@@ -1,7 +1,6 @@
 import os
 import sys
 
-
 def get_root_dir():
     """
     Lấy thư mục gốc của dự án.
@@ -14,6 +13,7 @@ def get_root_dir():
         development_dir = os.path.dirname(current_file_dir)
         project_root = os.path.dirname(development_dir)
         return project_root
+
 
 APP_NAME = "Report Generator"
 EXE_FILE_NAME = "ReportGenerator.exe"
@@ -36,14 +36,10 @@ APP_BUILD_DIR = os.path.join(ROOT_DIR, "app")
 
 # ===== CÀI ĐẶT KÍCH THƯỚC UI =====
 WINDOW_MIN_HEIGHT = 600
-
-NOTEBOOK_LIST_INITIAL_WIDTH = 300
-NOTEBOOK_LIST_MIN_WIDTH = 300
-
-SECTION_MIN_WIDTH = 400
-SECTION_DISPLAY_WIDTH = 400
-
-SPLITTER_INITIAL_SIZES = [NOTEBOOK_LIST_INITIAL_WIDTH]
+NOTEBOOK_LIST_WIDTH = 300
+RUN_SECTION_WIDTH = 350
+SCHEDULE_MANAGER_WIDTH = 350
+SPLITTER_INITIAL_SIZES = [NOTEBOOK_LIST_WIDTH]
 
 # ===== CÀI ĐẶT LOGGING (MỚI) =====
 LOG_TITLE_NOTEBOOK_PRINT = "Output từ '{nb_name}' tại '{section_name}'"

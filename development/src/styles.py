@@ -25,32 +25,24 @@ def get_stylesheet():
         QGroupBox::title {
             subcontrol-origin: margin;
             subcontrol-position: top left;
-            padding: 0 2px;
+            padding: 0 5px;
             left: 10px;
             color: #495057;
             background-color: #ffffff;
         }
-        #LogGroup, #AvailableGroup, #ControlsGroup, #SectionControlsGroup {
+        #AvailableGroup, #ControlsGroup, #SectionControlsGroup {
             border: 2px solid #dee2e6;
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffffff, stop:1 #f8f9fa);
         }
 
         /* === KHU VỰC CUỘN & VĂN BẢN === */
         QScrollArea { border: none; background-color: transparent; }
-        #AvailableScrollArea, #SectionScrollArea { 
+        #AvailableScrollArea, #SectionScrollArea, #ScheduleListScrollArea { 
             border: 1px solid #e9ecef; 
             border-radius: 8px; 
             background-color: #ffffff; 
         }
-        #CardsContainer, #ScheduleListContainer { background-color: #ffffff; border-radius: 6px; }        
-        #Console, #SectionConsole {
-            background-color: #1e1e1e;
-            color: #d4d4d4;
-            border: 1px solid #495057;
-            border-radius: 8px;
-            padding: 5px;
-            font-family: "JetBrains Mono", "Consolas", monospace;
-        }
+        #CardsContainer, #TasksContainer { background-color: #ffffff; border-radius: 6px; }        
         
         #SectionConsole {
             background-color: white;
@@ -92,16 +84,16 @@ def get_stylesheet():
             color: #2c3e50; 
             padding: 5px; 
         }
-        QComboBox {
+        QComboBox, #TaskSectionCombo {
             background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 4px;
             padding: 3px 5px; color: black;
+            font-size: 9pt;
         }
         QComboBox QAbstractItemView {
             background-color: white; border: 1px solid #ccc;
             selection-background-color: #007bff; color: black;
         }
 
-        /* --- MODIFIED: Thêm style cho QSpinBox --- */
         QSpinBox, #HourSpinBox, #MinuteSpinBox, #DelaySpinBox, #CountSpinBox {
             background-color: #f0f0f0;
             border: 1px solid #ccc;
@@ -115,7 +107,6 @@ def get_stylesheet():
             background-color: #e9ecef;
             color: #6c757d;
         }
-        /* --- END MODIFIED --- */
 
         /* === THANH CUỘN === */
         QScrollBar:vertical {
@@ -147,9 +138,9 @@ def get_stylesheet():
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #cce5ff, stop:1 #99d6ff); 
             border: 2px solid #007bff; 
         }
-        #SectionCard { 
+        #SectionCard, #ScheduledTaskDisplayCard { 
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffffff, stop:1 #f8f9fa); 
-            border: 1px solid #dee2e6; border-radius: 8px; margin: 5px; 
+            border: 1px solid #dee2e6; border-radius: 8px; margin: 2px; 
             padding: 6px; 
         }
         QLabel, #CardLabel { background-color: transparent; border: none; color: #2c3e50; }
@@ -180,19 +171,19 @@ def get_stylesheet():
         
         /* --- BUTTONS CHÍNH --- */
 
-        /* MÀU XANH BIỂN: Thêm, Chọn tất cả */
-        #AddSectionButton, #SelectAllButton {
+        /* MÀU XANH BIỂN: Thêm, Quản lý tác vụ */
+        #AddSectionButton, #ManageTasksButton {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #007bff, stop:1 #0056b3);
         }
-        #AddSectionButton:hover, #SelectAllButton:hover {
+        #AddSectionButton:hover, #ManageTasksButton:hover {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #0056b3, stop:1 #004085);
         }
 
-        /* MÀU XANH LÁ: Chạy, Làm mới, Hẹn giờ */
-        #RefreshButton, #SectionRunButton, #SetScheduleButton { 
+        /* MÀU XANH LÁ: Chạy, Làm mới */
+        #RefreshButton, #SectionRunButton { 
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #28a745, stop:1 #1e7e34); 
         }
-        #RefreshButton:hover, #SectionRunButton:hover, #SetScheduleButton:hover { 
+        #RefreshButton:hover, #SectionRunButton:hover { 
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #34ce57, stop:1 #28a745); 
         }
         
@@ -205,10 +196,10 @@ def get_stylesheet():
         }
 
         /* MÀU ĐỎ: Đóng, Xóa */
-        #SectionRemoveButton, #CloseAllNotebooksButton { 
+        #SectionRemoveButton, #CloseAllNotebooksButton, #CloseSectionButton { 
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #dc3545, stop:1 #c82333); 
         }
-        #SectionRemoveButton:hover, #CloseAllNotebooksButton:hover { 
+        #SectionRemoveButton:hover, #CloseAllNotebooksButton:hover, #CloseSectionButton:hover { 
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e4606d, stop:1 #dc3545); 
         }
 
@@ -227,10 +218,6 @@ def get_stylesheet():
             padding: 2px 4px;
             font-size: 8pt;
             color: white;
-        }
-        #SetScheduleButton {
-            padding-top: 3px;
-            padding-bottom: 3px;
         }
 
         #RunButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #28a745, stop:1 #1e7e34); }

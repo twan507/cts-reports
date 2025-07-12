@@ -36,6 +36,7 @@ from PyQt6.QtGui import (
     QPen,
     QTextCursor,
     QWheelEvent,
+    QIcon,
 )
 import config
 import functions
@@ -61,13 +62,8 @@ class CustomSpinBox(QSpinBox):
     def wheelEvent(self, event: QWheelEvent | None) -> None:
         """Xử lý sự kiện lăn chuột để ngăn chọn văn bản."""
         if event and self.lineEdit():
-            # Hủy chọn văn bản trước khi xử lý sự kiện
             self.lineEdit().deselect()
-
-        # Gọi hàm xử lý gốc để thay đổi giá trị
         super().wheelEvent(event)
-
-        # Hủy chọn văn bản một lần nữa sau khi giá trị đã thay đổi
         if self.lineEdit():
             self.lineEdit().deselect()
 
@@ -312,19 +308,23 @@ class SectionNotebookCard(QFrame):
         controls_layout = QHBoxLayout()
         self.run_btn = QPushButton("Chạy")
         self.run_btn.setObjectName("RunButton")
+        self.run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.run_btn.clicked.connect(self.run_notebook)
         controls_layout.addWidget(self.run_btn)
         self.stop_btn = QPushButton("Dừng")
         self.stop_btn.setObjectName("StopButton")
         self.stop_btn.setEnabled(False)
+        self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.stop_btn.clicked.connect(self.stop_notebook)
         controls_layout.addWidget(self.stop_btn)
         self.clear_log_btn = QPushButton("Xóa")
         self.clear_log_btn.setObjectName("ClearLogButton")
+        self.clear_log_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.clear_log_btn.clicked.connect(self.clear_log)
         controls_layout.addWidget(self.clear_log_btn)
         self.remove_btn = QPushButton("Đóng")
         self.remove_btn.setObjectName("RemoveButton")
+        self.remove_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.remove_btn.clicked.connect(self.remove_notebook)
         controls_layout.addWidget(self.remove_btn)
         layout.addLayout(controls_layout)
@@ -459,54 +459,275 @@ class SectionNotebookCard(QFrame):
 
         if msg_type == "RESET_TIMER":
             self.start_total_elapsed_timer()
-
         elif msg_type == "SECTION_LOG":
             self.log_message_to_section(content)
-
         elif msg_type == "ITERATION_START":
             iteration = content["iteration"]
-            total = content.get("total")
-
-            # Khôi phục định dạng log gốc
-            if self.execution_mode == "count":
-                log_line = f"Lần {total_runs}:" if "total_runs" in content else f"Lần {content['iteration']}:"
-            else:
-                log_line = f"Lần {iteration}:"
-
+            log_line = f"Lần {iteration}:"
             self.log_message_to_section(log_line)
             cursor = self.log_console.textCursor()
             cursor.movePosition(QTextCursor.MoveOperation.StartOfLine, QTextCursor.MoveMode.KeepAnchor)
             self.iteration_logs[iteration] = cursor
-
         elif msg_type == "ITERATION_END":
             iteration = content["iteration"]
             cursor = self.iteration_logs.get(iteration)
-
             duration_str = self._format_duration(content["duration"])
-            if content["success"]:
-                self.consecutive_error_count = 0
-                if cursor:
-                    cursor.movePosition(QTextCursor.MoveOperation.EndOfLine)
-                    cursor.insertText(f" {duration_str}")
-            else:
-                self.consecutive_error_count += 1
-                # Khôi phục định dạng log lỗi gốc
+
+            # if content["success"]:
+            #     self.consecutive_error_count = 0
+            #     if cursor:
+            #         cursor.movePosition(QTextCursor.MoveOperation.EndOfLine)
+            #         cursor.insertText(f" {duration_str}")
+            # else:
+            self.consecutive_error_count += 1
+            if cursor:
                 if self.execution_mode == "continuous":
-                    error_log_text = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS_CONTINOUS}]"
-                else:  # Chế độ hữu hạn
-                    error_log_text = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS_FINITE}]"
+                    error_message = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS_CONTINOUS}]"
+                else:
+                    error_message = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS_FINITE}]"
 
-                if cursor:
-                    cursor.movePosition(QTextCursor.MoveOperation.EndOfLine)
-                    cursor.insertText(error_log_text)
-
-                # Logic dừng khi lỗi quá nhiều được xử lý trong process
-                # Không cần gọi stop_requested từ đây nữa
-
+                cursor.movePosition(QTextCursor.MoveOperation.EndOfLine)
+                cursor.insertText(error_message)
         elif msg_type == "EXECUTION_FINISHED":
-            # Kiểm tra xem có phải dừng do lỗi không (process đã gửi thông điệp)
-            was_stopped_by_error = content if isinstance(content, bool) and not content else False
-            self.on_execution_finished(was_stopped_by_error)
+            self.on_execution_finished(False)
+
+
+# MODIFIED: Redesigned for two-line display
+class ScheduledTaskDisplayWidget(QFrame):
+    remove_requested = pyqtSignal(int)
+
+    def __init__(self, task_id, section_name, action_text, time_text, parent=None):
+        super().__init__(parent)
+        self.task_id = task_id
+        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setObjectName("ScheduledTaskDisplayCard")
+
+        # Main horizontal layout
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(8, 4, 4, 4)  # Reduce right margin
+        main_layout.setSpacing(4)  # Reduce spacing between elements
+
+        # Vertical layout for the two lines of text
+        text_layout = QVBoxLayout()
+        text_layout.setSpacing(2)
+
+        # Line 1: Section Name (bold)
+        section_label = QLabel(f"<b>{section_name}</b>")
+        section_label.setWordWrap(True)
+        text_layout.addWidget(section_label)
+
+        # Line 2: Action and Time (bold parts)
+        details_label = QLabel(f"<b>{action_text}</b> lúc <b>{time_text}</b>")
+        details_label.setWordWrap(True)
+        text_layout.addWidget(details_label)
+
+        main_layout.addLayout(text_layout, 1)  # Give text area flexible space
+
+        # Remove button on the right with fixed width, aligned to bottom
+        remove_label = ClickableLink("Xóa")
+        remove_label.setObjectName("RemoveScheduleLink")
+        remove_label.setFixedWidth(30)  # Reduce width to fit text better
+        remove_label.setAlignment(Qt.AlignmentFlag.AlignCenter)  # Center text in button
+        remove_label.clicked.connect(lambda: self.remove_requested.emit(self.task_id))
+        main_layout.addWidget(remove_label, 0, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight)
+
+
+class ScheduleManagerWidget(QWidget):
+    section_close_requested = pyqtSignal()
+
+    def __init__(self, parent_runner=None):
+        super().__init__()
+        self.parent_runner = parent_runner
+        self.tasks_data = {}
+        self.task_counter = 0
+        self.setMinimumWidth(config.SCHEDULE_MANAGER_WIDTH)
+        self.setObjectName("ScheduleManagerWidget")
+        self.setup_ui()
+
+    def setup_ui(self):
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(10)
+
+        main_group = QGroupBox("🕒 Tác Vụ Hẹn Giờ")
+        main_group_layout = QVBoxLayout(main_group)
+        main_group_layout.setContentsMargins(5, 10, 5, 5)
+        main_group_layout.setSpacing(8)
+
+        creator_layout = QHBoxLayout()
+        creator_layout.setContentsMargins(0, 0, 0, 5)
+
+        self.section_combo = QComboBox()
+        self.section_combo.setObjectName("TaskSectionCombo")
+        creator_layout.addWidget(self.section_combo, 1)
+
+        self.action_combo = QComboBox()
+        self.action_combo.addItems(["Chạy Đồng Thời", "Chạy Lần Lượt", "Dừng Tất Cả"])
+        self.action_combo.setFont(QFont("Segoe UI", 9))
+        creator_layout.addWidget(self.action_combo, 1)
+
+        self.hour_spin = CustomSpinBox(padded_display=True)
+        self.hour_spin.setRange(0, 23)
+        self.hour_spin.setValue(QTime.currentTime().hour())
+        self.hour_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
+        self.hour_spin.setObjectName("HourSpinBox")
+        self.hour_spin.setFixedWidth(40)
+        creator_layout.addWidget(self.hour_spin)
+
+        creator_layout.addWidget(QLabel(":"))
+
+        self.minute_spin = CustomSpinBox(padded_display=True)
+        self.minute_spin.setRange(0, 59)
+        self.minute_spin.setValue(QTime.currentTime().minute())
+        self.minute_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
+        self.minute_spin.setObjectName("MinuteSpinBox")
+        self.minute_spin.setFixedWidth(40)
+        creator_layout.addWidget(self.minute_spin)
+
+        main_group_layout.addLayout(creator_layout)
+
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setObjectName("ScheduleListScrollArea")
+        self.tasks_widget = QWidget()
+        self.tasks_widget.setObjectName("TasksContainer")
+        self.tasks_layout = QVBoxLayout(self.tasks_widget)
+        self.tasks_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.tasks_layout.setSpacing(5)
+        self.scroll_area.setWidget(self.tasks_widget)
+        main_group_layout.addWidget(self.scroll_area, 1)
+        main_layout.addWidget(main_group, 1)
+
+        controls_group = QGroupBox("⚙️ Điều Khiển Tác Vụ")
+        controls_group.setObjectName("SectionControlsGroup")
+        controls_layout = QVBoxLayout(controls_group)
+        controls_layout.setContentsMargins(5, 10, 5, 5)
+        controls_layout.setSpacing(8)
+
+        add_task_btn = QPushButton("Thêm tác vụ")
+        add_task_btn.setObjectName("SectionRunButton")
+        add_task_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_task_btn.clicked.connect(self.add_task)
+        controls_layout.addWidget(add_task_btn)
+
+        delete_all_btn = QPushButton("Xóa Tất Cả")
+        delete_all_btn.setObjectName("ClearAllLogsButton")
+        delete_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        delete_all_btn.clicked.connect(self.delete_all_tasks)
+        controls_layout.addWidget(delete_all_btn)
+
+        close_btn = QPushButton("Đóng Section")
+        close_btn.setObjectName("CloseSectionButton")
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        close_btn.clicked.connect(self.section_close_requested.emit)
+        controls_layout.addWidget(close_btn)
+
+        main_layout.addWidget(controls_group, 0)
+        self.update_task_display()
+
+    def add_task(self):
+        section_id = self.section_combo.currentData()
+        section_name = self.section_combo.currentText()
+        if not section_id:
+            QMessageBox.warning(self, "Lỗi", "Vui lòng chọn một Section hợp lệ.")
+            return
+
+        action_map = {
+            "Chạy Đồng Thời": "run_all_simultaneously",
+            "Chạy Lần Lượt": "run_all_sequential_wrapper",
+            "Dừng Tất Cả": "stop_all_notebooks",
+        }
+        action_text = self.action_combo.currentText()
+        time_val = QTime(self.hour_spin.value(), self.minute_spin.value())
+
+        self.task_counter += 1
+        task_id = self.task_counter
+
+        self.tasks_data[task_id] = {
+            "section_id": section_id,
+            "section_name": section_name,
+            "action_key": action_map.get(action_text),
+            "action_text": action_text,
+            "time": time_val,
+        }
+
+        self.update_task_display()
+        if self.parent_runner:
+            self.parent_runner.log_message_to_cmd(f"Đã thêm tác vụ: {action_text} cho {section_name} lúc {time_val.toString('HH:mm')}.")
+
+    def remove_task(self, task_id):
+        if task_id in self.tasks_data:
+            task_info = self.tasks_data[task_id]
+            log_message = (
+                f"Đã xóa tác vụ: {task_info['action_text']} cho {task_info['section_name']} lúc {task_info['time'].toString('HH:mm')}."
+            )
+            del self.tasks_data[task_id]
+            self.update_task_display()
+            if self.parent_runner:
+                self.parent_runner.log_message_to_cmd(log_message)
+
+    def delete_all_tasks(self):
+        if not self.tasks_data:
+            return
+        reply = QMessageBox.question(
+            self,
+            "Xác nhận xóa",
+            "Bạn có chắc muốn xóa tất cả các tác vụ đã tạo?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.tasks_data.clear()
+            self.update_task_display()
+            if self.parent_runner:
+                self.parent_runner.log_message_to_cmd("Đã xóa tất cả các tác vụ định kỳ.")
+
+    def update_task_display(self):
+        while self.tasks_layout.count():
+            item = self.tasks_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        if not self.tasks_data:
+            placeholder = QLabel("Chưa có lịch hẹn nào.")
+            placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            placeholder.setStyleSheet("color: #888;")
+            self.tasks_layout.addWidget(placeholder)
+        else:
+            sorted_tasks = sorted(self.tasks_data.items(), key=lambda item: item[1]["time"])
+            for task_id, task_info in sorted_tasks:
+                # MODIFIED: Create new two-line widget
+                task_widget = ScheduledTaskDisplayWidget(
+                    task_id, task_info["section_name"], task_info["action_text"], task_info["time"].toString("HH:mm")
+                )
+                task_widget.remove_requested.connect(self.remove_task)
+                self.tasks_layout.addWidget(task_widget)
+
+    def update_section_list(self, sections_dict):
+        current_selection = self.section_combo.currentData()
+        self.section_combo.clear()
+        if not sections_dict:
+            self.section_combo.addItem("Chưa có section", None)
+            self.section_combo.setEnabled(False)
+        else:
+            for section_id, section_widget in sections_dict.items():
+                self.section_combo.addItem(section_widget.section_name, section_id)
+            self.section_combo.setEnabled(True)
+            index = self.section_combo.findData(current_selection)
+            if index != -1:
+                self.section_combo.setCurrentIndex(index)
+
+    def get_tasks(self):
+        return self.tasks_data.copy()
+
+    def mark_task_as_run(self, task_id, time_str):
+        if task_id in self.tasks_data:
+            self.tasks_data[task_id]["last_run_time"] = time_str
+
+    def reset_task_run_marker(self, task_id):
+        if task_id in self.tasks_data and "last_run_time" in self.tasks_data[task_id]:
+            del self.tasks_data[task_id]["last_run_time"]
 
 
 class SectionWidget(QWidget):
@@ -517,42 +738,29 @@ class SectionWidget(QWidget):
     def __init__(self, section_name, section_id, parent_runner=None):
         super().__init__()
         self.section_name, self.section_id, self.parent_runner = section_name, section_id, parent_runner
-        self.notebook_cards, self.running_processes, self.schedules = {}, {}, []
-        self.schedule_counter = 0
+        self.notebook_cards, self.running_processes = {}, {}
 
         self.is_sequence_running = False
         self.sequential_queue = []
-
-        self.schedule_timer = QTimer(self)
-        self.schedule_timer.timeout.connect(self.check_scheduled_actions)
-        self.schedule_timer.start(1000)
 
         self.queue_checker_timer = QTimer(self)
         self.queue_checker_timer.timeout.connect(self.check_all_queues)
         self.queue_checker_timer.start(100)
 
-        self.setMinimumWidth(config.SECTION_MIN_WIDTH)
+        self.setMinimumWidth(config.RUN_SECTION_WIDTH)
         self.setAcceptDrops(True)
         self.setup_ui()
 
     def dragEnterEvent(self, a0: QDragEnterEvent | None) -> None:
-        if a0:
-            mime_data = a0.mimeData()
-            if mime_data and mime_data.hasText():
-                a0.acceptProposedAction()
-            else:
-                a0.ignore()
+        if a0 and a0.mimeData().hasText():
+            a0.acceptProposedAction()
         elif a0:
             a0.ignore()
 
     def dropEvent(self, a0: QDropEvent | None) -> None:
-        if a0:
-            mime_data = a0.mimeData()
-            if mime_data and mime_data.hasText():
-                self.notebooks_dropped.emit(self, mime_data.text().split("\n"))
-                a0.acceptProposedAction()
-            else:
-                a0.ignore()
+        if a0 and a0.mimeData().hasText():
+            self.notebooks_dropped.emit(self, a0.mimeData().text().split("\n"))
+            a0.acceptProposedAction()
         elif a0:
             a0.ignore()
 
@@ -614,68 +822,6 @@ class SectionWidget(QWidget):
         self.scroll_area.setWidget(self.cards_widget)
         notebooks_group_layout.addWidget(self.scroll_area)
         main_layout.addWidget(notebooks_group, 1)
-        schedule_group = QGroupBox("⏰ Tác vụ hẹn giờ")
-        schedule_main_layout = QVBoxLayout(schedule_group)
-        schedule_main_layout.setContentsMargins(5, 10, 5, 5)
-        schedule_main_layout.setSpacing(10)
-        add_schedule_layout = QHBoxLayout()
-        self.action_combo = QComboBox()
-        self.action_combo.addItems(["Chạy Đồng Thời", "Chạy Lần Lượt", "Dừng Tất Cả"])
-        self.action_combo.setFont(QFont("Segoe UI", 9))
-        add_schedule_layout.addWidget(self.action_combo, 1)
-        add_schedule_layout.addSpacing(10)
-
-        time_layout = QHBoxLayout()
-        time_layout.setSpacing(2)
-
-        self.schedule_hour_spin = CustomSpinBox(padded_display=True)
-        self.schedule_hour_spin.setRange(0, 23)
-        self.schedule_hour_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
-        self.schedule_hour_spin.setFixedWidth(40)
-        self.schedule_hour_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.schedule_hour_spin.setObjectName("HourSpinBox")
-
-        self.schedule_minute_spin = CustomSpinBox(padded_display=True)
-        self.schedule_minute_spin.setRange(0, 59)
-        self.schedule_minute_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
-        self.schedule_minute_spin.setFixedWidth(40)
-        self.schedule_minute_spin.setSingleStep(1)
-        self.schedule_minute_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.schedule_minute_spin.setObjectName("MinuteSpinBox")
-
-        current_time = QTime.currentTime()
-        self.schedule_hour_spin.setValue(current_time.hour())
-        self.schedule_minute_spin.setValue(current_time.minute())
-
-        time_layout.addWidget(self.schedule_hour_spin)
-        colon_label = QLabel(":")
-        colon_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        colon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        time_layout.addWidget(colon_label)
-
-        time_layout.addWidget(self.schedule_minute_spin)
-
-        add_schedule_layout.addLayout(time_layout)
-
-        self.add_schedule_btn = QPushButton("Thêm")
-        self.add_schedule_btn.setObjectName("SetScheduleButton")
-        self.add_schedule_btn.clicked.connect(self.add_schedule)
-        add_schedule_layout.addWidget(self.add_schedule_btn)
-        schedule_main_layout.addLayout(add_schedule_layout)
-        scroll_schedules = QScrollArea()
-        scroll_schedules.setWidgetResizable(True)
-        scroll_schedules.setStyleSheet("QScrollArea{border:1px solid #dee2e6;border-radius:4px;}")
-        scroll_schedules.setFixedHeight(60)
-        self.schedule_list_widget = QWidget()
-        self.schedule_list_widget.setObjectName("ScheduleListContainer")
-        self.schedule_list_widget.setStyleSheet("QWidget#ScheduleListContainer{background-color:white;}")
-        self.schedule_list_layout = QVBoxLayout(self.schedule_list_widget)
-        self.schedule_list_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.schedule_list_layout.setContentsMargins(5, 5, 5, 5)
-        self.schedule_list_layout.setSpacing(5)
-        scroll_schedules.setWidget(self.schedule_list_widget)
-        schedule_main_layout.addWidget(scroll_schedules)
-        main_layout.addWidget(schedule_group, 0)
 
         controls_group = QGroupBox("⚙️ Điều Khiển Section")
         controls_group.setObjectName("SectionControlsGroup")
@@ -686,10 +832,12 @@ class SectionWidget(QWidget):
         row1_layout = QHBoxLayout()
         self.run_all_btn = QPushButton("Chạy Đồng Thời")
         self.run_all_btn.setObjectName("SectionRunButton")
+        self.run_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.run_all_btn.clicked.connect(self.run_all_simultaneously)
         row1_layout.addWidget(self.run_all_btn)
         self.run_sequential_btn = QPushButton("Chạy Lần Lượt")
         self.run_sequential_btn.setObjectName("SectionRunButton")
+        self.run_sequential_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.run_sequential_btn.clicked.connect(self.run_all_sequential_wrapper)
         row1_layout.addWidget(self.run_sequential_btn)
         controls_layout.addLayout(row1_layout)
@@ -697,10 +845,12 @@ class SectionWidget(QWidget):
         row2_layout = QHBoxLayout()
         self.stop_all_btn = QPushButton("Dừng Tất Cả")
         self.stop_all_btn.setObjectName("SectionStopButton")
+        self.stop_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.stop_all_btn.clicked.connect(self.stop_all_notebooks)
         row2_layout.addWidget(self.stop_all_btn)
-        self.clear_all_logs_btn = QPushButton("Xoá Tất Cả")
+        self.clear_all_logs_btn = QPushButton("Xóa Tất Cả")
         self.clear_all_logs_btn.setObjectName("ClearAllLogsButton")
+        self.clear_all_logs_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.clear_all_logs_btn.clicked.connect(self._clear_all_logs)
         row2_layout.addWidget(self.clear_all_logs_btn)
         controls_layout.addLayout(row2_layout)
@@ -708,16 +858,17 @@ class SectionWidget(QWidget):
         row3_layout = QHBoxLayout()
         self.close_section_btn = QPushButton("Đóng Section")
         self.close_section_btn.setObjectName("SectionRemoveButton")
+        self.close_section_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_section_btn.clicked.connect(self.close_section)
         row3_layout.addWidget(self.close_section_btn)
         self.close_all_notebooks_btn = QPushButton("Đóng Tất Cả")
         self.close_all_notebooks_btn.setObjectName("CloseAllNotebooksButton")
+        self.close_all_notebooks_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_all_notebooks_btn.clicked.connect(self._close_all_notebooks)
         row3_layout.addWidget(self.close_all_notebooks_btn)
         controls_layout.addLayout(row3_layout)
 
         main_layout.addWidget(controls_group, 0)
-        self.update_schedule_display()
 
     def _clear_all_logs(self):
         for card in self.notebook_cards.values():
@@ -727,75 +878,6 @@ class SectionWidget(QWidget):
         all_paths = list(self.notebook_cards.keys())
         if all_paths:
             self.notebook_remove_requested.emit(self, all_paths)
-
-    def add_schedule(self):
-        self.schedule_counter += 1
-        schedule_id = self.schedule_counter
-        action_text = self.action_combo.currentText()
-
-        hour = self.schedule_hour_spin.value()
-        minute = self.schedule_minute_spin.value()
-        schedule_time = QTime(hour, minute)
-
-        action_map = {
-            "Chạy Đồng Thời": "run_all_simultaneously",
-            "Chạy Lần Lượt": "run_all_sequential_wrapper",
-            "Dừng Tất Cả": "stop_all_notebooks",
-        }
-        action_key = action_map.get(action_text)
-        self.schedules.append({"id": schedule_id, "action_key": action_key, "action_text": action_text, "time": schedule_time})
-        self.update_schedule_display()
-        if self.parent_runner:
-            self.parent_runner.log_message_to_cmd(
-                f"[{self.section_name}] Đã thêm lịch hẹn: '{action_text}' lúc {schedule_time.toString('HH:mm')}"
-            )
-
-    def remove_schedule(self, schedule_id):
-        self.schedules = [s for s in self.schedules if s["id"] != schedule_id]
-        self.update_schedule_display()
-
-    def update_schedule_display(self):
-        while self.schedule_list_layout.count():
-            item = self.schedule_list_layout.takeAt(0)
-            if item is not None:
-                widget = item.widget()
-                if widget:
-                    widget.deleteLater()
-
-        if not self.schedules:
-            placeholder = QLabel("Chưa có lịch hẹn nào.")
-            placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            placeholder.setStyleSheet("color:#888;")
-            self.schedule_list_layout.addWidget(placeholder)
-            return
-
-        self.schedules.sort(key=lambda s: s["time"])
-
-        for schedule in self.schedules:
-            item_frame = QFrame()
-            item_layout = QHBoxLayout(item_frame)
-            item_layout.setContentsMargins(8, 2, 8, 2)
-            label = QLabel(f"<b>{schedule['action_text']}</b> lúc <b>{schedule['time'].toString('HH:mm')}</b>")
-            item_layout.addWidget(label)
-            item_layout.addStretch()
-            remove_label = ClickableLink("Xóa")
-            remove_label.clicked.connect(partial(self.remove_schedule, schedule["id"]))
-            item_layout.addWidget(remove_label)
-            self.schedule_list_layout.addWidget(item_frame)
-
-    def check_scheduled_actions(self):
-        now_str = QTime.currentTime().toString("HH:mm")
-        executed_ids = []
-        for schedule in self.schedules:
-            if schedule["time"].toString("HH:mm") == now_str:
-                if hasattr(self, schedule["action_key"]):
-                    getattr(self, schedule["action_key"])()
-                if self.parent_runner:
-                    self.parent_runner.log_message_to_cmd(f"[{self.section_name}] Thực thi hẹn giờ: {schedule['action_text']}")
-                executed_ids.append(schedule["id"])
-        if executed_ids:
-            self.schedules = [s for s in self.schedules if s["id"] not in executed_ids]
-            self.update_schedule_display()
 
     def add_notebook_card(self, path, description):
         if path in self.notebook_cards:
@@ -810,10 +892,8 @@ class SectionWidget(QWidget):
         self.notebook_cards[path] = card
 
     def _cleanup_finished_process(self, path, success):
-        """Removes the process from the running list once it's truly finished."""
         if path in self.running_processes:
             del self.running_processes[path]
-
         if not self.running_processes:
             self.stop_all_btn.setEnabled(True)
             if not self.is_sequence_running:
@@ -824,7 +904,9 @@ class SectionWidget(QWidget):
         if path in self.notebook_cards:
             if path in self.running_processes:
                 self.on_card_stop_requested(path)
-            self.notebook_cards.pop(path).deleteLater()
+            card = self.notebook_cards.pop(path)
+            card.setParent(None)
+            card.deleteLater()
 
     def on_card_run_requested(self, card):
         self.run_notebook(card)
@@ -925,9 +1007,7 @@ class SectionWidget(QWidget):
             if card.path in self.running_processes:
                 self._run_next_in_sequence()
                 return
-
             card.run_notebook()
-
             if card.execution_mode == "continuous":
                 if self.parent_runner:
                     nb_name = os.path.basename(card.path)
@@ -941,16 +1021,13 @@ class SectionWidget(QWidget):
     def _on_sequential_notebook_finished(self, path, success):
         if not self.is_sequence_running:
             return
-
         card = self.notebook_cards.get(path)
         if card and card.execution_mode == "continuous":
             return
-
         nb_name = os.path.basename(path)
         status_text = "thành công" if success else "thất bại"
         if self.parent_runner:
             self.parent_runner.log_message_to_cmd(f"[{self.section_name}] Tuần tự: '{nb_name}' hoàn thành {status_text}.")
-
         if success:
             self._run_next_in_sequence()
         else:
@@ -1008,8 +1085,6 @@ class SectionWidget(QWidget):
         self.section_close_requested.emit(self)
 
     def cleanup(self):
-        if hasattr(self, "schedule_timer"):
-            self.schedule_timer.stop()
         if hasattr(self, "queue_checker_timer"):
             self.queue_checker_timer.stop()
         self.stop_all_notebooks()
