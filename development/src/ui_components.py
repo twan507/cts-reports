@@ -222,7 +222,7 @@ class SectionNotebookCard(QFrame):
         super().__init__(parent)
         self.path, self.description = path, description
         self.execution_mode, self.execution_count, self.execution_delay, self.current_status, self.start_time = (
-            "continuous",
+            "count",
             1,
             0,
             "ready",
@@ -253,7 +253,7 @@ class SectionNotebookCard(QFrame):
 
         mode_layout = QHBoxLayout()
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["Lặp lại vô hạn", "Lặp lại hữu hạn"])
+        self.mode_combo.addItems(["Lặp lại hữu hạn", "Lặp lại vô hạn"])
         self.mode_combo.currentTextChanged.connect(self.on_mode_changed)
         mode_layout.addWidget(self.mode_combo, 1)
 
@@ -329,6 +329,12 @@ class SectionNotebookCard(QFrame):
         controls_layout.addWidget(self.remove_btn)
         layout.addLayout(controls_layout)
         layout.addStretch()
+
+        # Thiết lập trạng thái ban đầu cho chế độ "Lặp lại hữu hạn"
+        self.count_label.setVisible(True)
+        self.count_spin.setVisible(True)
+        self.delay_label.setVisible(False)
+        self.delay_spin.setVisible(False)
 
     def on_mode_changed(self, text):
         is_count_mode = text == "Lặp lại hữu hạn"
@@ -473,21 +479,22 @@ class SectionNotebookCard(QFrame):
             cursor = self.iteration_logs.get(iteration)
             duration_str = self._format_duration(content["duration"])
 
-            # if content["success"]:
-            #     self.consecutive_error_count = 0
-            #     if cursor:
-            #         cursor.movePosition(QTextCursor.MoveOperation.EndOfLine)
-            #         cursor.insertText(f" {duration_str}")
-            # else:
-            self.consecutive_error_count += 1
-            if cursor:
-                if self.execution_mode == "continuous":
-                    error_message = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS_CONTINOUS}]"
-                else:
-                    error_message = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS_FINITE}]"
+            if content["success"]:
+                self.consecutive_error_count = 0
+                if cursor:
+                    cursor.movePosition(QTextCursor.MoveOperation.EndOfLine)
+                    cursor.insertText(f" {duration_str}")
+            else:
+                self.consecutive_error_count += 1
+                if cursor:
+                    if self.execution_mode == "continuous":
+                        error_message = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS_CONTINOUS}]"
+                    else:
+                        error_message = f" {duration_str} [LỖI {self.consecutive_error_count}/{config.MAX_CONSECUTIVE_ERRORS_FINITE}]"
 
-                cursor.movePosition(QTextCursor.MoveOperation.EndOfLine)
-                cursor.insertText(error_message)
+                    cursor.movePosition(QTextCursor.MoveOperation.EndOfLine)
+                    cursor.insertText(error_message)
+                    
         elif msg_type == "EXECUTION_FINISHED":
             self.on_execution_finished(False)
 

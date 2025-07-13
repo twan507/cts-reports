@@ -110,7 +110,9 @@ required_hiddenimports = [
     'win32gui',
     'win32console',
     'sqlalchemy.dialects.mysql',
-    'cryptography.fernet'
+    'cryptography.fernet',
+    'alpha_vantage',
+    'alpha_vantage.foreignexchange'
 ]
 
 # --- TỔNG HỢP CÁC THÀNH PHẦN ---
