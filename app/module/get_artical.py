@@ -77,48 +77,6 @@ def get_article_vietstock(url):
     except Exception as e:
         return "", ""
 
-
-def summary_article(model, content, news_type):
-    if news_type == "doanh_nghiep":
-        promt = f"""
-            Tóm tắt bài báo sau:
-            {content}
-
-            YÊU CẦU NGHIÊM NGẶT:
-            - ĐÚNG 3 CÂU VĂN
-            - MỖI CÂU KHOẢNG 10 TỪ
-            - BAO GỒM SỐ LIỆU CỤ THỂ
-            - KHÔNG DÙNG CỤM TỪ GIỚI THIỆU
-            
-            QUY TẮC VỀ MÃ CỔ PHIẾU:
-            - Nếu có mã cổ phiếu rõ ràng: Bắt đầu bằng "MÃ: Nội dung..." (VD: HPG: Doanh thu Q4 tăng 25%)
-            - Nếu KHÔNG có mã cổ phiếu: Bắt đầu trực tiếp bằng nội dung, TUYỆT ĐỐI KHÔNG viết "[Không có mã cổ phiếu]"
-            - KHÔNG BAO GIỜ sử dụng ngoặc vuông [] cho mã cổ phiếu
-            
-            Ví dụ đúng:
-            - Có mã: "HPG: Doanh thu Q4 tăng 25% đạt 50.000 tỷ đồng. Lợi nhuận ròng đạt 8.500 tỷ đồng."
-            - Không có mã: "Thị trường chứng khoán tăng 2,3% trong tuần qua. VN-Index đạt 1.250 điểm."
-        """
-    else:
-        promt = f"""
-            Tóm tắt bài báo sau:
-            {content}
-
-            YÊU CẦU NGHIÊM NGẶT:
-            - ĐÚNG 3 CÂU VĂN
-            - MỖI CÂU KHOẢNG 10 TỪ
-            - BAO GỒM SỐ LIỆU CỤ THỂ
-            - KHÔNG DÙNG CỤM TỪ GIỚI THIỆU
-            - TRÌNH BÀY THÔNG TIN CỐT LÕI NHẤT
-            - BẮT ĐẦU TRỰC TIẾP BẰNG NỘI DUNG CHÍNH
-            
-            Ví dụ: Lạm phát tháng 12 tăng 3,2% so với cùng kỳ. Giá xăng dầu giảm 5% trong tuần qua. GDP quý 4 tăng trưởng 6,8%.
-        """
-        
-    response = model.generate_content(promt)
-    return response.text
-
-
 # Hàm lấy danh sách bài viết từ trang danh mục CafeF (tạo feed giả)
 def get_cafef_articles_list(url, max_articles=2):
     """

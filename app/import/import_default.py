@@ -23,6 +23,7 @@ import os
 import requests
 import zipfile
 import io
+import re
 
 # Bỏ qua các cảnh báo không quan trọng để giữ cho output sạch sẽ
 warnings.filterwarnings("ignore")
