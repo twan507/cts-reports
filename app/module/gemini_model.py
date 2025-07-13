@@ -187,11 +187,11 @@ def summary_article(model_dict, content, news_type):
         """Tạo prompt với điều chỉnh dựa trên số lần thử"""
         word_requirement = ""
         if attempt == 1:
-            word_requirement = "- ĐÚNG 3 CÂU VĂN, mỗi câu khoảng 10-12 từ"
+            word_requirement = "- ĐÚNG 5 CÂU VĂN, mỗi câu khoảng 13-16 từ"
         elif attempt == 2:
-            word_requirement = "- ĐÚNG 3 CÂU VĂN, mỗi câu CHÍNH XÁC 11 từ"
+            word_requirement = "- ĐÚNG 5 CÂU VĂN, mỗi câu CHÍNH XÁC 14 từ"
         else:
-            word_requirement = "- NGHIÊM NGẶT: 3 CÂU VĂN, mỗi câu ĐÚNG 11 từ, không nhiều hơn, không ít hơn"
+            word_requirement = "- NGHIÊM NGẶT: 5 CÂU VĂN, mỗi câu ĐÚNG 14 từ, không nhiều hơn, không ít hơn"
         
         if news_type == "doanh_nghiep":
             return f"""
@@ -240,7 +240,7 @@ def summary_article(model_dict, content, news_type):
             word_count = count_words(result)
             
             # Kiểm tra xem có nằm trong khoảng 30-40 từ không
-            if 30 <= word_count <= 45:
+            if 70 <= word_count <= 90:
                 return result
             else:
                 if attempt == max_attempts:

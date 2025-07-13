@@ -232,3 +232,6 @@ config_local.py
 # Cache directories
 .cache/
 cache/
+
+# Output directory
+output/

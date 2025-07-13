@@ -324,3 +324,20 @@ def convert_published_time(time_str):
     except Exception as e:
         print(f"Không thể chuyển đổi thời gian: {time_str}, lỗi: {e}")
         return pd.NaT
+
+def get_data_from_av(from_symbol, to_symbol, column_name):
+    """Hàm lấy dữ liệu tỷ giá từ Alpha Vantage"""
+    try:
+        fe = ForeignExchange(key=load_env('AV_KEY'), output_format='pandas')
+        df, _ = fe.get_currency_exchange_daily(
+            from_symbol=from_symbol,
+            to_symbol=to_symbol,
+            outputsize='full'
+        )
+        df_clean = df[df.index >= datetime(2020, 1, 1)][['4. close']].copy()
+        df_clean.columns = [column_name]
+        df_clean[column_name] = df_clean[column_name].astype(float)
+        return df_clean
+    except Exception as e:
+        print(f"❌ LỖI khi lấy dữ liệu {column_name}: {e}")
+        return None

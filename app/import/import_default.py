@@ -8,8 +8,9 @@ import sys
 import copy
 import time
 import random
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from typing import cast
+import math
 
 # === Phân tích Dữ liệu (Data Analysis) ===
 import pandas as pd
@@ -24,6 +25,10 @@ import requests
 import zipfile
 import io
 import re
+import hashlib
+import urllib3
+from urllib.parse import urlparse, quote
+import hmac
 
 # Bỏ qua các cảnh báo không quan trọng để giữ cho output sạch sẽ
 warnings.filterwarnings("ignore")
