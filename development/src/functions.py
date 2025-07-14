@@ -134,11 +134,24 @@ def log_message(message):
     print(f"[{timestamp}] {message}")
 
 
-def format_output_for_cmd(title, content, width=100):
+def format_output_for_cmd(log_type, section_name, nb_name, content, width=100):
+    """
+    Tạo định dạng log mới theo yêu cầu.
+    Ví dụ: [09:42:45] [Output] [Section 2] [finext04_realtime_data.ipynb]
+    """
+    timestamp = time.strftime("%H:%M:%S")
+    
+    # Xác định tag là [Output] hay [ERROR]
+    tag = f"[{log_type.upper()}]"
+    
+    # Tạo dòng tiêu đề
+    header = f"[{timestamp}] {tag} [{section_name}] [{nb_name}]"
+    
     separator = "=" * width
-    formatted_title = f" {title} ".center(width, "=")
 
-    return f"""{formatted_title}
+    # Ghép lại thành chuỗi hoàn chỉnh
+    return f"""{header}
+{separator}
 {content.strip()}
 {separator}"""
 
@@ -213,6 +226,8 @@ def _execute_notebook_process(
 
     def run_single_notebook():
         nb = None
+        # Tạo một list để gom tất cả output từ các lệnh print
+        all_prints = []
         try:
             with open(notebook_path, "r", encoding="utf-8") as f:
                 nb = nbformat.read(f, as_version=4)
@@ -222,18 +237,42 @@ def _execute_notebook_process(
             ep = ExecutePreprocessor(timeout=3600)
             ep.preprocess(nb, {"metadata": {"path": notebook_dir}})
 
+            # Sau khi chạy xong, lặp qua các cell để gom output
             for cell in nb.cells:
                 if "outputs" in cell:
                     for output in cell.outputs:
                         if output.output_type == "stream" and output.text.strip():
-                            log_queue.put(("NOTEBOOK_PRINT", output.text))
+                            # Thêm output vào list thay vì gửi đi ngay
+                            all_prints.append(output.text)
+            
+            # Nếu có output trong list, nối chúng lại và gửi đi một lần duy nhất
+            if all_prints:
+                combined_output = "\\n".join(all_prints)
+                log_queue.put(("NOTEBOOK_PRINT", combined_output))
+                
             return True, nb
+            
         except CellExecutionError as e:
-            error_details = f"Lỗi trong cell:\n{e.ename}: {e.evalue}\n--- Traceback ---\n{traceback.format_exc()}"
-            log_queue.put(("EXECUTION_ERROR", {"details": error_details}))
+            # Lấy traceback đầy đủ dưới dạng một chuỗi
+            full_traceback = traceback.format_exc()
+            
+            # Dấu hiệu để tìm phần traceback cuối cùng và quan trọng nhất
+            separator = "---------------------------------------------------------------------------"
+            
+            if separator in full_traceback:
+                # Tách chuỗi và chỉ lấy phần cuối cùng sau dấu phân cách
+                short_traceback = full_traceback.split(separator)[-1].strip()
+            else:
+                # Nếu không tìm thấy dấu phân cách, hiển thị lỗi gốc để không mất thông tin
+                short_traceback = str(e)
+
+            # Chỉ gửi phần lỗi đã được rút gọn về giao diện
+            log_queue.put(("EXECUTION_ERROR", {"details": short_traceback}))
             return False, nb
+        
         except Exception as e:
-            error_details = f"Lỗi không mong muốn: {e}\n{traceback.format_exc()}"
+            # Rút gọn thông báo cho các lỗi chung khác để log luôn sạch sẽ
+            error_details = f"Lỗi không mong muốn: {type(e).__name__}: {e}"
             log_queue.put(("EXECUTION_ERROR", {"details": error_details}))
             return False, nb
 

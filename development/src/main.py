@@ -243,8 +243,6 @@ def main():
 
         def log_message_to_cmd(self, message, is_block=False):
             if is_block:
-                timestamp = time.strftime("%H:%M:%S")
-                print(f"[{timestamp}]")
                 print(message)
             else:
                 functions.log_message(message)

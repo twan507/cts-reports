@@ -129,7 +129,6 @@ def upload_to_r2(data_bytes: bytes, filename: str, content_type: str = 'image/pn
 
             if response.status_code in [200, 201]:
                 public_url = f"https://pub-196e071ed6aa4a6a80cd72afba5ebd53.r2.dev/{file_path}"
-                print(f"✅ Tạo thành công biểu đồ: {filename} -> {public_url}")
                 return public_url
             else:
                 print(f"❌ Upload thất bại. Status code: {response.status_code}")

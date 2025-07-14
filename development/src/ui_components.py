@@ -494,7 +494,7 @@ class SectionNotebookCard(QFrame):
 
                     cursor.movePosition(QTextCursor.MoveOperation.EndOfLine)
                     cursor.insertText(error_message)
-                    
+
         elif msg_type == "EXECUTION_FINISHED":
             self.on_execution_finished(False)
 
@@ -800,15 +800,22 @@ class SectionWidget(QWidget):
 
         nb_name = os.path.basename(notebook_path)
 
-        if msg_type == "NOTEBOOK_PRINT":
-            title = config.LOG_TITLE_NOTEBOOK_PRINT.format(nb_name=nb_name, section_name=self.section_name)
-            formatted_log = functions.format_output_for_cmd(title, str(content))
-            self.parent_runner.log_message_to_cmd(formatted_log, is_block=True)
+        # Chuyển đổi msg_type sang 'Output' hoặc 'ERROR'
+        log_type = "ERROR" if msg_type == "EXECUTION_ERROR" else "Output"
+        
+        # Lấy nội dung thực sự từ dict (đối với lỗi)
+        log_content = content.get("details", "") if isinstance(content, dict) else str(content)
 
-        elif msg_type == "EXECUTION_ERROR":
-            title = config.LOG_TITLE_NOTEBOOK_ERROR.format(nb_name=nb_name, section_name=self.section_name)
-            formatted_log = functions.format_output_for_cmd(title, content.get("details", ""))
-            self.parent_runner.log_message_to_cmd(formatted_log, is_block=True)
+        # Gọi hàm định dạng mới với đầy đủ thông tin
+        formatted_log = functions.format_output_for_cmd(
+            log_type=log_type,
+            section_name=self.section_name,
+            nb_name=nb_name,
+            content=log_content
+        )
+        
+        # Gửi chuỗi đã định dạng tới console chính
+        self.parent_runner.log_message_to_cmd(formatted_log, is_block=True)
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)

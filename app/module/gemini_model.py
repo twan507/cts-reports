@@ -167,10 +167,8 @@ def generate_content_with_model_dict(model_dict, prompt):
         for model_name, model_instance in model_dict.items():
             try:
                 response = model_instance.generate_content(prompt)
-                # print(f"✅ Model {model_name} thành công")
                 return response.text
             except Exception as e:
-                # print(f"❌ Model {model_name} thất bại")
                 continue
     # Nếu tất cả model đều thất bại
     raise Exception("❌ Tất cả model đều thất bại")
