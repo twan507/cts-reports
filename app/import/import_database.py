@@ -2,6 +2,7 @@ import sys
 import os
 from pymongo import MongoClient
 from sqlalchemy import create_engine
+from pymongo.errors import ExecutionTimeout, PyMongoError
 
 sys.path.append(os.path.join(os.path.dirname(os.getcwd()), "import"))
 from import_env import load_env
