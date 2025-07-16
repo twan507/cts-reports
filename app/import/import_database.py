@@ -142,3 +142,31 @@ def overwrite_mongo_collection(collection, df):
     
     if last_exception:
         raise RuntimeError(f"Failed to overwrite collection '{collection_name}' after {MAX_RETRIES} attempts. Last error: {last_exception}") from last_exception
+
+def save_to_mssql(engine, df, table_name, if_exists='replace', index=False, max_retries=5):
+    """
+    Lưu DataFrame vào SQL với cơ chế thử lại khi gặp lỗi
+    
+    Parameters:
+    - df: pandas DataFrame cần lưu
+    - engine: SQLAlchemy engine
+    - table_name: tên bảng trong database
+    - if_exists: hành động khi bảng đã tồn tại ('replace', 'append', 'fail')
+    - index: có lưu index hay không
+    - max_retries: số lần thử lại tối đa
+    - retry_delay: thời gian chờ giữa các lần thử (giây)
+    
+    Returns:
+    - True nếu thành công, raise exception nếu thất bại sau tất cả lần thử
+    """
+    last_exception = None
+    for _ in range(max_retries):
+        try:
+            df.to_sql(table_name, engine, if_exists=if_exists, index=index)
+            return True
+        except Exception as e:
+            last_exception = e
+    
+    # Nếu tất cả các lần thử đều thất bại
+    if last_exception:
+        raise RuntimeError(f"Không thể lưu dữ liệu vào bảng '{table_name}'. Lỗi: {last_exception}") from last_exception

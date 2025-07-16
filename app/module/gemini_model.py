@@ -173,7 +173,7 @@ def generate_content_with_model_dict(model_dict, prompt):
     # Nếu tất cả model đều thất bại
     raise Exception("❌ Tất cả model đều thất bại")
 
-def summary_article(model_dict, content, news_type):
+def summary_daily_article(model_dict, content, news_type):
     def count_words(text):
         """Đếm số từ trong văn bản tiếng Việt"""
         # Loại bỏ ký tự xuống dòng và khoảng trắng thừa
@@ -239,6 +239,85 @@ def summary_article(model_dict, content, news_type):
             
             # Kiểm tra xem có nằm trong khoảng 30-40 từ không
             if 70 <= word_count <= 90:
+                return result
+            else:
+                if attempt == max_attempts:
+                    return result
+                
+        except Exception as e:
+            print(f"❌ Lỗi lần thử {attempt}: {e}")
+            if attempt == max_attempts:
+                raise e
+    
+    # Fallback (không bao giờ đến đây nhưng để đảm bảo)
+    return generate_content_with_model_dict(model_dict, create_prompt())
+
+def summary_weekly_article(model_dict, content, news_type):
+    def count_words(text):
+        """Đếm số từ trong văn bản tiếng Việt"""
+        # Loại bỏ ký tự xuống dòng và khoảng trắng thừa
+        clean_text = ' '.join(text.strip().split())
+        # Đếm từ bằng cách tách theo khoảng trắng
+        return len(clean_text.split())
+    
+    def create_prompt(attempt=1):
+        """Tạo prompt với điều chỉnh dựa trên số lần thử"""
+        word_requirement = ""
+        if attempt == 1:
+            word_requirement = "- ĐÚNG 3 CÂU VĂN, mỗi câu khoảng 13-16 từ"
+        elif attempt == 2:
+            word_requirement = "- ĐÚNG 3 CÂU VĂN, mỗi câu CHÍNH XÁC 14 từ"
+        else:
+            word_requirement = "- NGHIÊM NGẶT: 3 CÂU VĂN, mỗi câu ĐÚNG 14 từ, không nhiều hơn, không ít hơn"
+        
+        if news_type == "doanh_nghiep":
+            return f"""
+                Tóm tắt bài báo sau:
+                {content}
+
+                YÊU CẦU NGHIÊM NGẶT:
+                {word_requirement}
+                - BAO GỒM SỐ LIỆU CỤ THỂ
+                - KHÔNG DÙNG CỤM TỪ GIỚI THIỆU
+                
+                QUY TẮC VỀ MÃ CỔ PHIẾU:
+                - Nếu có mã cổ phiếu trong bài báo: Bắt đầu câu đầu tiên bằng "MÃ_CỔ_PHIẾU: Nội dung..." (VD: HPG: Doanh thu Q4 tăng 25%)
+                - Nếu KHÔNG có mã cổ phiếu: Bắt đầu trực tiếp bằng nội dung chính
+                - TUYỆT ĐỐI KHÔNG viết "MÃ:" hoặc sử dụng ngoặc vuông []
+                - CHỈ sử dụng mã cổ phiếu thực tế có trong bài báo
+                
+                Ví dụ đúng:
+                - Có mã cổ phiếu: "VIC: Cổ phiếu tăng trần lên 101.600 đồng. Tài sản tỷ phú Vượng tăng 12.000 tỷ. Dự án Cần Giờ được phê duyệt 2025."
+                - Không có mã: "Thị trường chứng khoán tăng 2,3% tuần qua. VN-Index đạt 1.250 điểm. Thanh khoản đạt 20.000 tỷ đồng."
+            """
+        else:
+            return f"""
+                Tóm tắt bài báo sau:
+                {content}
+
+                YÊU CẦU NGHIÊM NGẶT:
+                {word_requirement}
+                - BAO GỒM SỐ LIỆU CỤ THỂ
+                - KHÔNG DÙNG CỤM TỪ GIỚI THIỆU
+                - TRÌNH BÀY THÔNG TIN CỐT LÕI NHẤT
+                - BẮT ĐẦU TRỰC TIẾP BẰNG NỘI DUNG CHÍNH
+                
+                Ví dụ: Lạm phát tháng 12 tăng 3,2% so với cùng kỳ. Giá xăng dầu giảm 5% trong tuần qua. GDP quý 4 tăng trưởng 6,8%.
+            """
+    
+    # Thử tối đa 3 lần để có được kết quả trong khoảng 30-40 từ
+    max_attempts = 3
+    
+    for attempt in range(1, max_attempts + 1):
+        try:
+            prompt = create_prompt(attempt)
+            result = generate_content_with_model_dict(model_dict, prompt)
+            
+            # Đếm số từ
+            word_count = count_words(result)
+            
+            # Kiểm tra xem có nằm trong khoảng 30-40 từ không
+            if 40 <= word_count <= 60:
                 return result
             else:
                 if attempt == max_attempts:
