@@ -14,3 +14,4 @@ from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 import plotly.express as px
 from plotly import graph_objects as go
+from plotly.subplots import make_subplots
