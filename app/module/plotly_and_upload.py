@@ -372,7 +372,7 @@ def _add_rsi_chart(fig, df, config):
     # PHỤC HỒI LOGIC TIÊU ĐỀ GỐC: Thêm nhãn tiêu đề ở góc trên-trái
     last_rsi = df[rsi_col].iloc[-1]
     fig.add_annotation(
-        x=0.01, y=0.98, xref='x domain', yref='y domain',
+        x=0.013, y=1, xref='x domain', yref='y domain',
         text=f"RSI 14: <b style='color:{config['color_rsi_line']};'>{last_rsi:.2f}</b>" , showarrow=False,
         xanchor='left', yanchor='top',
         font=dict(size=config['font_size_subplot_title'], family=config['font_family'], color='black'),
@@ -507,7 +507,7 @@ def _configure_layout_and_axes(fig, df, max_volume, config, width, height):
         margin=config['margin'], plot_bgcolor=config['plot_bgcolor'], paper_bgcolor=config['paper_bgcolor'],
         hovermode='x unified', font=dict(family=config['font_family']),
         title={
-            'text': title_text, 'y': 0.98, 'x': 0.027,
+            'text': title_text, 'y': 0.98, 'x': 0.047,
             'xanchor': 'left', 'yanchor': 'top',
                         'font': dict(size=config['font_size_title'], family=config['font_family'], color='black')
         }
