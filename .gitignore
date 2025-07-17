@@ -234,4 +234,4 @@ config_local.py
 cache/
 
 # Output directory
-output/
+app/output/**/*.**

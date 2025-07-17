@@ -373,7 +373,7 @@ def _add_rsi_chart(fig, df, config):
     last_rsi = df[rsi_col].iloc[-1]
     fig.add_annotation(
         x=0.01, y=0.98, xref='x domain', yref='y domain',
-        text=f"RSI 14: <b style='color:{config['color_rsi_line']};'>{last_rsi:.2f}</b>", showarrow=False,
+        text=f"RSI 14: <b style='color:{config['color_rsi_line']};'>{last_rsi:.2f}</b>" , showarrow=False,
         xanchor='left', yanchor='top',
         font=dict(size=config['font_size_subplot_title'], family=config['font_family'], color='black'),
         xshift=-13,                # Tạo khoảng đệm nhỏ từ lề trái
@@ -411,10 +411,14 @@ def _add_rsi_chart(fig, df, config):
          'bordercolor': config['color_rsi_line']},
     ]
 
+    # Thêm các nhãn vào biểu đồ
     for anno in annotations:
         fig.add_annotation(
-            x=1, y=anno['y'], xref='x domain', yref='y', text=anno['text'],
-            showarrow=False, xanchor='left', yanchor='middle', xshift=22,
+            x=config['label_x_position'], y=anno['y'], xref='x domain', yref='y',
+            text=anno['text'],
+            ax=-10,
+            ay=0,
+            xanchor='left', yanchor='middle',
             font={**tag_font, 'color': anno['font_color']},
             bgcolor=anno['bgcolor'], bordercolor=anno['bordercolor'],
             borderwidth=1, row=2, col=1
@@ -443,11 +447,10 @@ def _process_and_add_annotations(fig, df, line_info, symbol_name, config):
     if price_tag:
         fig.add_annotation(
             x=config['label_x_position'], y=price_tag['value'], xref='x domain', yref='y',
-            text=f"<b>{price_tag['name']}</b>", showarrow=True, xanchor='left', yanchor='middle',
+            text=f"<b>{price_tag['name']}</b>", xanchor='left', yanchor='middle',
             font=dict(size=config['font_size_price_tag'], color=price_tag['font_color'], family=config['font_family']),
             bgcolor=price_tag['bgcolor'], bordercolor=price_tag['color'], borderwidth=1,
-            arrowhead=2, arrowsize=1, arrowwidth=1, arrowcolor=config['arrow_color'],
-            ax=-20, ay=0, row=1, col=1
+            ax=-10, ay=0, row=1, col=1
         )
         used_y_positions.append(price_tag['value'])
 
@@ -459,11 +462,10 @@ def _process_and_add_annotations(fig, df, line_info, symbol_name, config):
         used_y_positions.append(y_pos)
         fig.add_annotation(
             x=config['label_x_position'], y=y_pos, xref='x domain', yref='y',
-            text=f"<b>{info['name']}</b>", showarrow=True, xanchor='left', yanchor='middle',
+            text=f"<b>{info['name']}</b>", xanchor='left', yanchor='middle',
             font=dict(size=config['font_size_tag'], color=info['color'], family=config['font_family']),
             bgcolor=config['tag_bgcolor'], bordercolor=info['color'], borderwidth=1,
-            arrowhead=2, arrowsize=1, arrowwidth=1, arrowcolor=config['arrow_color'],
-            ax=-20, ay=0, row=1, col=1
+            ax=-10, ay=0, row=1, col=1
         )
 
 def _calculate_safe_position(y_position, used_y_positions, min_spacing, df):
@@ -482,7 +484,7 @@ def _calculate_safe_position(y_position, used_y_positions, min_spacing, df):
 # 5. CÁC HÀM CẤU HÌNH LAYOUT VÀ TRỤC
 # ==============================================================================
 
-def _configure_layout_and_axes(fig, df, max_volume, config):
+def _configure_layout_and_axes(fig, df, max_volume, config, width, height):
     """Cấu hình layout tổng thể, các trục X, Y và tiêu đề."""
     last_day = df.iloc[-1]
     o, h, l, c = last_day.get('open', 0), last_day.get('high', 0), last_day.get('low', 0), last_day.get('close', 0)
@@ -499,7 +501,9 @@ def _configure_layout_and_axes(fig, df, max_volume, config):
     )
 
     fig.update_layout(
-        height=800, xaxis_rangeslider_visible=False, showlegend=False,
+        height=height,
+        width=width, 
+        xaxis_rangeslider_visible=False, showlegend=False,
         margin=config['margin'], plot_bgcolor=config['plot_bgcolor'], paper_bgcolor=config['paper_bgcolor'],
         hovermode='x unified', font=dict(family=config['font_family']),
         title={
@@ -565,16 +569,61 @@ def _generate_xaxis_ticks(df):
 # ==============================================================================
 # 6. HÀM CHÍNH TỔNG HỢP (ORCHESTRATION FUNCTION)
 # ==============================================================================
+def create_chart_config(
+    title_font_size,
+    axis_font_size,
+    tag_font_size,
+    price_tag_font_size,
+    min_spacing_ratio,
+    margin
+):
+    return {
+        # ---- Font Family ----
+        'font_family': "Calibri",
+
+        # ---- Font Sizes ----
+        'font_size_title': title_font_size,
+        'font_size_subplot_title': title_font_size,
+        'font_size_axis': axis_font_size,
+        'font_size_tag': tag_font_size,
+        'font_size_price_tag': price_tag_font_size,
+
+        # ---- Colors ----
+        'color_up': '#00A040',
+        'color_down': '#E53935',
+        'tick_color': '#5E5E5E',
+        'grid_color': 'rgba(230, 230, 230, 0.8)',
+        'plot_bgcolor': 'white',
+        'paper_bgcolor': 'white',
+        'tag_bgcolor': 'rgba(255, 255, 255, 0.85)',
+        
+        # ---- RSI Colors ----
+        'color_rsi_line': '#8c68c8',
+        'color_rsi_bound_line': '#c3c5ca',
+        'color_rsi_bound_fill': '#f2eef9',
+        'color_rsi_bound_tag': '#7f7f7f',
+
+        # ---- Chart Constants & Layout ----
+        'label_x_position': 1.02,
+        'label_min_spacing_ratio': min_spacing_ratio,
+        'volume_yaxis_range_multiplier': 4.0,
+        'rsi_upper_bound': 70,
+        'rsi_lower_bound': 30,
+        'rsi_label_min_spacing_ratio': min_spacing_ratio,
+        'margin': margin, # Tăng margin trái (l) để tạo khoảng đệm
+    }
 
 def create_financial_chart(
     df: pd.DataFrame,
     width,
     height,
     line_name_dict: dict,
+    line_columns: list,
+    chart_config: dict,
+    path: str,
+    image_name: str,
     symbol_name: str = "VNINDEX",
     time_frame: str = "1D",
-    line_columns: list = None,
-    chart_config: dict = None
 ):
     """
     Hàm chính để tạo biểu đồ tài chính hoàn chỉnh.
@@ -598,6 +647,9 @@ def create_financial_chart(
     _add_candlestick_chart(fig, df, chart_config)
     _add_rsi_chart(fig, df, chart_config)
     _process_and_add_annotations(fig, df, line_info, symbol_name, chart_config)
-    _configure_layout_and_axes(fig, df, max_volume, chart_config)
+    _configure_layout_and_axes(fig, df, max_volume, chart_config, width, height)
+
+    full_path = os.path.join(path, image_name)
+    fig.write_image(full_path, width=width, height=height, scale=2)
 
     return fig, fig.to_image(format="png", width=width, height=height, scale=2)
