@@ -10,7 +10,7 @@ from import_default import *
 
 
 # Kết nối MongoDB
-mongo_client = MongoClient(load_env("DEV_MONGO_URI"))
+mongo_client = MongoClient(load_env("PROD_MONGO_URI"))
 stock_db = mongo_client["stock_db"]
 ref_db = mongo_client["ref_db"]
 
