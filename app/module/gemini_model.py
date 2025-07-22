@@ -463,90 +463,80 @@ def identify_major_news(model_dict, news_df: pd.DataFrame) -> pd.DataFrame:
     return news_df['major_news']
 
 def analyze_news_sectors(model_dict, news_df):
-    # --- Cấu hình ---
-    VALID_SECTORS = {
-        'Thực phẩm', 'BĐS KCN', 'Bất động sản', 'Du lịch và DV',
-        'Ngân hàng', 'Xây dựng', 'Hoá chất', 'Công nghiệp', 'Thuỷ sản',
-        'Vận tải', 'Y tế', 'DV hạ tầng', 'Thép', 'Bảo hiểm', 'Dệt may',
-        'Bán lẻ', 'Chứng khoán', 'Công nghệ', 'Dầu khí',
-        'Công ty tài chính', 'Hàng tiêu dùng', 'Khoáng sản'
-    }
-    DEFAULT_SECTOR = "Công nghiệp"
-    num_news = len(news_df)
+    """
+    Phân tích tin tức để tự động xác định các lĩnh vực/ngành bị ảnh hưởng 
+    mà không cần một danh sách định trước.
 
+    Args:
+        model_dict (dict): Dictionary chứa thông tin về mô hình ngôn ngữ.
+        news_df (pd.DataFrame): DataFrame chứa tin tức với các cột 'title' và 'content'.
+
+    Returns:
+        list: Một danh sách các chuỗi, mỗi chuỗi chứa các lĩnh vực được phân loại 
+              cho một tin tức, cách nhau bởi dấu phẩy. Trả về danh sách rỗng nếu
+              không có tin tức đầu vào.
+    """
+    num_news = len(news_df)
     if num_news == 0:
         return []
 
-    # --- Prompt Engineering ---
+    # --- Prompt Engineering (Linh hoạt hơn) ---
+    # Prompt mới không đưa ra danh sách cứng mà hướng dẫn AI tự xác định
     system_prompt = """
-    Bạn là một chuyên gia phân tích thị trường chứng khoán Việt Nam.
-    Nhiệm vụ của bạn là xác định lĩnh vực/ngành nghề chính mà tin tức ảnh hưởng đến.
+    Bạn là một chuyên gia phân tích thị trường chứng khoán Việt Nam với kiến thức sâu rộng về các ngành kinh tế.
+    Nhiệm vụ của bạn là xác định (các) lĩnh vực hoặc ngành nghề kinh tế chính mà mỗi tin tức sau đây đề cập đến.
 
-    Danh sách các lĩnh vực có thể chọn:
-    Thực phẩm, BĐS KCN, Bất động sản, Du lịch và DV, Ngân hàng, Xây dựng, 
-    Hoá chất, Công nghiệp, Thuỷ sản, Vận tải, Y tế, DV hạ tầng, Thép, 
-    Bảo hiểm, Dệt may, Bán lẻ, Chứng khoán, Công nghệ, Dầu khí, 
-    Công ty tài chính, Hàng tiêu dùng, Khoáng sản
-
-    Với mỗi tin tức, hãy chọn tất cả lĩnh vực chính bị ảnh hưởng. Nếu tin tức ảnh hưởng 
-    đến nhiều lĩnh vực hoặc toàn thị trường, hãy chọn "Công nghiệp".
-
-    Chỉ trả về kết quả theo format: Lĩnh vực1,Lĩnh vực2|Lĩnh vực3|Lĩnh vực1,Lĩnh vực4|...
-    - Mỗi tin tức cách nhau bằng dấu |
-    - Trong mỗi tin tức, các lĩnh vực cách nhau bằng dấu ,
-    Không giải thích, chỉ trả về danh sách phân loại.
+    HƯỚNG DẪN:
+    1. Với mỗi tin tức, hãy liệt kê tất cả các lĩnh vực/ngành nghề bị ảnh hưởng.
+    2. Sử dụng thuật ngữ kinh tế phổ biến và chính xác của Việt Nam (ví dụ: 'Ngân hàng', 'Bất động sản', 'Thép', 'Năng lượng tái tạo', 'Logistics').
+    3. Nếu một tin tức có ảnh hưởng rộng đến toàn bộ nền kinh tế hoặc thị trường chứng khoán, hãy sử dụng 'Toàn thị trường'.
+    
+    QUY TẮC FORMAT ĐẦU RA (RẤT QUAN TRỌNG):
+    - Chỉ trả về kết quả theo format: Lĩnh vực A, Lĩnh vực B|Lĩnh vực C|Lĩnh vực D, Lĩnh vực E|...
+    - Mỗi tin tức được phân tách bằng dấu gạch đứng `|`.
+    - Trong mỗi tin tức, các lĩnh vực khác nhau được phân tách bằng dấu phẩy `,`.
+    - Không giải thích, không thêm ghi chú, chỉ trả về chuỗi kết quả.
     """
 
-    # Tạo danh sách tin tức
+    # Tạo danh sách tin tức để đưa vào prompt
     news_items = [
         f"Tin {idx + 1}:\nTiêu đề: {row['title']}\nNội dung: {row['content']}"
         for idx, row in news_df.iterrows()
     ]
-    full_prompt = system_prompt + "\n\nDanh sách tin tức cần phân tích:\n\n" + "\n\n".join(news_items)
+    full_prompt = system_prompt + "\n\n--- DANH SÁCH TIN TỨC CẦN PHÂN TÍCH ---\n\n" + "\n\n".join(news_items)
 
     # --- Gọi API và Xử lý kết quả ---
     try:
         response = generate_content_with_model_dict(model_dict, full_prompt)
-        raw_sectors_list = [item.strip() for item in response.strip().split('|')]
+        
+        # Tách kết quả cho từng tin tức
+        raw_sectors_per_news = [item.strip() for item in response.strip().split('|')]
 
-        # Cảnh báo nếu số lượng không khớp
-        if len(raw_sectors_list) != num_news:
-            print(f"Cảnh báo: Số lượng kết quả ({len(raw_sectors_list)}) không khớp với số tin tức ({num_news})")
+        # Cảnh báo nếu số lượng kết quả trả về không khớp
+        if len(raw_sectors_per_news) != num_news:
+            print(
+                f"Cảnh báo: Số lượng kết quả ({len(raw_sectors_per_news)}) "
+                f"không khớp với số lượng tin tức ({num_news}). "
+                f"Sẽ xử lý dựa trên những gì nhận được."
+            )
 
-        # Xử lý và xác thực kết quả
-        cleaned_sectors_list = []
+        processed_sectors = []
         for i in range(num_news):
-            # Lấy kết quả từ AI nếu có, ngược lại dùng giá trị mặc định
-            raw_sectors = raw_sectors_list[i] if i < len(raw_sectors_list) else DEFAULT_SECTOR
-            
-            # Tách và làm sạch các lĩnh vực
-            sectors = [sector.strip() for sector in raw_sectors.split(',')]
-            
-            # Xác thực từng lĩnh vực
-            valid_sectors = []
-            for sector in sectors:
-                if sector in VALID_SECTORS:
-                    valid_sectors.append(sector)
-                else:
-                    if i < len(raw_sectors_list):  # Chỉ in cảnh báo cho giá trị thực sự không hợp lệ
-                        print(f"Lĩnh vực không hợp lệ '{sector}' trong tin {i+1}")
-            
-            # Nếu không có lĩnh vực nào hợp lệ, dùng mặc định
-            if not valid_sectors:
-                valid_sectors = [DEFAULT_SECTOR]
-            
-            # Loại bỏ trùng lặp và giữ thứ tự
-            unique_sectors = []
-            for sector in valid_sectors:
-                if sector not in unique_sectors:
-                    unique_sectors.append(sector)
-            
-            # Chuyển từ list sang string, cách nhau bởi dấu phẩy
-            sectors_string = ', '.join(unique_sectors)
-            cleaned_sectors_list.append(sectors_string)
-            
-        return cleaned_sectors_list
+            if i < len(raw_sectors_per_news) and raw_sectors_per_news[i]:
+                # Tách các lĩnh vực, làm sạch khoảng trắng, và loại bỏ các mục rỗng
+                sectors = [sector.strip() for sector in raw_sectors_per_news[i].split(',') if sector.strip()]
+                
+                # Loại bỏ các lĩnh vực trùng lặp trong cùng một tin tức nhưng vẫn giữ nguyên thứ tự
+                unique_sectors = list(dict.fromkeys(sectors))
+                
+                processed_sectors.append(', '.join(unique_sectors))
+            else:
+                # Nếu AI không trả về gì cho tin tức này, hoặc không có đủ kết quả
+                processed_sectors.append('') # Thêm chuỗi rỗng để chỉ ra không có lĩnh vực nào được xác định
+
+        return processed_sectors
 
     except Exception as e:
-        print(f"Lỗi khi gọi API Gemini: {e}")
-        return [DEFAULT_SECTOR] * num_news
+        print(f"Lỗi nghiêm trọng khi gọi API hoặc xử lý dữ liệu: {e}")
+        # Trả về danh sách các chuỗi rỗng có độ dài bằng số tin tức khi có lỗi
+        return [''] * num_news

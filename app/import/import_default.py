@@ -29,6 +29,8 @@ import hashlib
 import urllib3
 from urllib.parse import urlparse, quote
 import hmac
+from pathlib import Path
+import glob
 
 # Bỏ qua các cảnh báo không quan trọng để giữ cho output sạch sẽ
 warnings.filterwarnings("ignore")
