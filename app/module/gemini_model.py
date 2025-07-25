@@ -54,60 +54,6 @@ def get_gemini_models():
 
     return model_list
 
-def select_standard_models(model_list: list[str]) -> list[str]:
-    candidates = []
-
-    for model_name in model_list:
-        # Bước 1: Lọc sơ bộ - chỉ giữ lại các model 'gemini-2.5-flash' không-lite
-        if not model_name.startswith('gemini-2.5-flash') or 'lite' in model_name:
-            continue
-
-        # Bước 2: Phân tích các thành phần một cách linh hoạt
-        has_thinking = 'thinking' in model_name
-        thinking_priority = 0 if has_thinking else 1
-
-        # Tìm kiếm các mẫu 'preview' và 'phiên bản cố định'
-        preview_match = re.search(r'-preview-(\d{2}-\d{2})', model_name)
-        fixed_match = re.search(r'-(\d{3})$', model_name) # $ để đảm bảo nó ở cuối chuỗi
-
-        # Bước 3: Xác định loại model và giá trị sắp xếp
-        if preview_match:
-            type_priority = 3
-            date_str = preview_match.group(1)
-            try:
-                sort_value = datetime.strptime(date_str, "%m-%d")
-            except ValueError:
-                continue
-        elif fixed_match:
-            type_priority = 2
-            version_str = fixed_match.group(1)
-            sort_value = -int(version_str)
-        else: # Model cơ bản
-            type_priority = 1
-            sort_value = 0
-
-        candidates.append({
-            'name': model_name,
-            'thinking_p': thinking_priority,
-            'type_p': type_priority,
-            'sort_v': sort_value
-        })
-
-    # Bước 4: Sắp xếp các ứng viên bằng key đa cấp
-    def sort_key(option):
-        # Đối với preview, sắp xếp ngày giảm dần (ngày mới nhất trước)
-        if option['type_p'] == 3:
-            sort_v_cmp = -option['sort_v'].toordinal()
-        else:
-            sort_v_cmp = option['sort_v']
-        
-        return (option['thinking_p'], option['type_p'], sort_v_cmp)
-
-    candidates.sort(key=sort_key)
-
-    # Bước 5: Trích xuất tên model đã được sắp xếp
-    return [opt['name'] for opt in candidates]
-
 def select_fast_models(model_list: list[str]) -> list[str]:
     target_families = [
         'gemini-2.0-flash',
@@ -158,20 +104,114 @@ def select_fast_models(model_list: list[str]) -> list[str]:
             
     return final_selection
 
-def generate_content_with_model_dict(model_dict, prompt):
-    """
-    Thử generate content với các model từ model_dict theo thứ tự.
-    Tự động fallback sang model tiếp theo nếu gặp lỗi.
-    """
-    for _ in range(2):
-        for model_name, model_instance in model_dict.items():
+def select_standard_models(model_list: list[str]) -> list[str]:
+    candidates = []
+
+    for model_name in model_list:
+        # Bước 1: Lọc sơ bộ - chỉ giữ lại các model 'gemini-2.5-flash' không-lite
+        if not model_name.startswith('gemini-2.5-flash') or 'lite' in model_name:
+            continue
+
+        # Bước 2: Phân tích các thành phần một cách linh hoạt
+        has_thinking = 'thinking' in model_name
+        thinking_priority = 0 if has_thinking else 1
+
+        # Tìm kiếm các mẫu 'preview' và 'phiên bản cố định'
+        preview_match = re.search(r'-preview-(\d{2}-\d{2})', model_name)
+        fixed_match = re.search(r'-(\d{3})$', model_name) # $ để đảm bảo nó ở cuối chuỗi
+
+        # Bước 3: Xác định loại model và giá trị sắp xếp
+        if preview_match:
+            type_priority = 3
+            date_str = preview_match.group(1)
             try:
-                response = model_instance.generate_content(prompt)
-                return response.text
-            except Exception as e:
+                sort_value = datetime.strptime(date_str, "%m-%d")
+            except ValueError:
                 continue
-    # Nếu tất cả model đều thất bại
-    raise Exception("❌ Tất cả model đều thất bại")
+        elif fixed_match:
+            type_priority = 2
+            version_str = fixed_match.group(1)
+            sort_value = -int(version_str)
+        else: # Model cơ bản
+            type_priority = 1
+            sort_value = 0
+
+        candidates.append({
+            'name': model_name,
+            'thinking_p': thinking_priority,
+            'type_p': type_priority,
+            'sort_v': sort_value
+        })
+
+    # Bước 4: Sắp xếp các ứng viên bằng key đa cấp
+    def sort_key(option):
+        # Đối với preview, sắp xếp ngày giảm dần (ngày mới nhất trước)
+        if option['type_p'] == 3:
+            sort_v_cmp = -option['sort_v'].toordinal()
+        else:
+            sort_v_cmp = option['sort_v']
+        
+        return (option['thinking_p'], option['type_p'], sort_v_cmp)
+
+    candidates.sort(key=sort_key)
+    final_selection = [opt['name'] for opt in candidates]
+
+    # Bước 5: Trích xuất tên model đã được sắp xếp
+    return final_selection + select_fast_models(get_gemini_models())
+
+def generate_content_with_model_dict(
+    model_dict: Dict[str, genai.GenerativeModel], 
+    prompt: str,
+    retries_per_model: int = 2
+) -> str:
+    """
+    Tạo nội dung với danh sách model, tự động fallback và thử lại.
+    Hàm này được cấu hình để nới lỏng các bộ lọc an toàn.
+
+    Args:
+        model_dict: Dictionary chứa tên model và đối tượng model đã khởi tạo.
+        prompt: Nội dung prompt để gửi đến model.
+        retries_per_model: Số lần thử lại cho mỗi model trước khi chuyển sang model tiếp theo.
+
+    Returns:
+        Nội dung text từ model đầu tiên thành công.
+
+    Raises:
+        Exception: Nếu tất cả các model đều thất bại sau tất cả các lần thử lại.
+    """
+    # Cấu hình nới lỏng bộ lọc an toàn, sẽ được áp dụng cho mọi lệnh gọi API
+    safety_settings = {
+        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+    }
+
+    # Lặp qua từng model trong danh sách
+    for model_name, model_instance in model_dict.items():
+        # Thử lại nhiều lần cho cùng một model trước khi bỏ cuộc
+        for attempt in range(retries_per_model):
+            try:
+                response = model_instance.generate_content(
+                    prompt,
+                    safety_settings=safety_settings
+                )
+
+                # KIỂM TRA QUAN TRỌNG: Chỉ truy cập .text nếu có nội dung trả về
+                if response.parts:
+                    return response.text
+                else:
+                    # Xử lý trường hợp phản hồi bị chặn (RECITATION, SAFETY,...)
+                    reason = "Unknown"
+                    if response.prompt_feedback and response.prompt_feedback.block_reason:
+                        reason = response.prompt_feedback.block_reason.name
+                    print(f"CẢNH BÁO: Model '{model_name}' lỗi lần {attempt+1}/{retries_per_model}. Lý do: {reason}.")
+                    time.sleep(1) # Chờ một chút trước khi thử lại
+            except Exception as e:
+                time.sleep(1) # Chờ một chút trước khi thử lại
+
+    # Nếu tất cả model đều thất bại sau tất cả các lần thử
+    raise Exception("❌ Tất cả model trong danh sách đều đã thất bại.")
 
 def summary_daily_article(model_dict, content, news_type):
     def count_words(text):
@@ -191,40 +231,38 @@ def summary_daily_article(model_dict, content, news_type):
         else:
             word_requirement = "- NGHIÊM NGẶT: 5 CÂU VĂN, mỗi câu ĐÚNG 14 từ, không nhiều hơn, không ít hơn"
         
-        if news_type == "doanh_nghiep":
-            return f"""
-                Tóm tắt bài báo sau:
-                {content}
+        # if news_type == "doanh_nghiep":
+        #     return f"""
+        #         Tóm tắt bài báo sau:
+        #         {content}
 
-                YÊU CẦU NGHIÊM NGẶT:
-                {word_requirement}
-                - BAO GỒM SỐ LIỆU CỤ THỂ
-                - KHÔNG DÙNG CỤM TỪ GIỚI THIỆU
+        #         YÊU CẦU NGHIÊM NGẶT:
+        #         {word_requirement}
+        #         - BAO GỒM SỐ LIỆU CỤ THỂ
+        #         - KHÔNG DÙNG CỤM TỪ GIỚI THIỆU
                 
-                QUY TẮC VỀ MÃ CỔ PHIẾU:
-                - Nếu có mã cổ phiếu trong bài báo: Bắt đầu câu đầu tiên bằng "MÃ_CỔ_PHIẾU: Nội dung..." (VD: HPG: Doanh thu Q4 tăng 25%)
-                - Nếu KHÔNG có mã cổ phiếu: Bắt đầu trực tiếp bằng nội dung chính
-                - TUYỆT ĐỐI KHÔNG viết "MÃ:" hoặc sử dụng ngoặc vuông []
-                - CHỈ sử dụng mã cổ phiếu thực tế có trong bài báo
+        #         QUY TẮC VỀ MÃ CỔ PHIẾU:
+        #         - Nếu có mã cổ phiếu trong bài báo: Bắt đầu câu đầu tiên bằng "MÃ_CỔ_PHIẾU: Nội dung..." (VD: HPG: Doanh thu Q4 tăng 25%)
+        #         - Nếu KHÔNG có mã cổ phiếu: Bắt đầu trực tiếp bằng nội dung chính
+        #         - TUYỆT ĐỐI KHÔNG viết "MÃ:" hoặc sử dụng ngoặc vuông []
+        #         - CHỈ sử dụng mã cổ phiếu thực tế có trong bài báo
                 
-                Ví dụ đúng:
-                - Có mã cổ phiếu: "VIC: Cổ phiếu tăng trần lên 101.600 đồng. Tài sản tỷ phú Vượng tăng 12.000 tỷ. Dự án Cần Giờ được phê duyệt 2025."
-                - Không có mã: "Thị trường chứng khoán tăng 2,3% tuần qua. VN-Index đạt 1.250 điểm. Thanh khoản đạt 20.000 tỷ đồng."
-            """
-        else:
-            return f"""
-                Tóm tắt bài báo sau:
-                {content}
+        #         Ví dụ đúng:
+        #         - Có mã cổ phiếu: "VIC: Cổ phiếu tăng trần lên 101.600 đồng. Tài sản tỷ phú Vượng tăng 12.000 tỷ. Dự án Cần Giờ được phê duyệt 2025."
+        #         - Không có mã: "Thị trường chứng khoán tăng 2,3% tuần qua. VN-Index đạt 1.250 điểm. Thanh khoản đạt 20.000 tỷ đồng."
+        #     """
+        # else:
+        return f"""
+            Tóm tắt bài báo sau:
+            {content}
 
-                YÊU CẦU NGHIÊM NGẶT:
-                {word_requirement}
-                - BAO GỒM SỐ LIỆU CỤ THỂ
-                - KHÔNG DÙNG CỤM TỪ GIỚI THIỆU
-                - TRÌNH BÀY THÔNG TIN CỐT LÕI NHẤT
-                - BẮT ĐẦU TRỰC TIẾP BẰNG NỘI DUNG CHÍNH
-                
-                Ví dụ: Lạm phát tháng 12 tăng 3,2% so với cùng kỳ. Giá xăng dầu giảm 5% trong tuần qua. GDP quý 4 tăng trưởng 6,8%.
-            """
+            YÊU CẦU NGHIÊM NGẶT:
+            {word_requirement}
+            - BAO GỒM SỐ LIỆU CỤ THỂ
+            - KHÔNG DÙNG CỤM TỪ GIỚI THIỆU
+            - TRÌNH BÀY THÔNG TIN CỐT LÕI NHẤT
+            - BẮT ĐẦU TRỰC TIẾP BẰNG NỘI DUNG CHÍNH
+        """
     
     # Thử tối đa 3 lần để có được kết quả trong khoảng 30-40 từ
     max_attempts = 3
@@ -332,63 +370,77 @@ def summary_weekly_article(model_dict, content, news_type):
     return generate_content_with_model_dict(model_dict, create_prompt())
 
 def analyze_news_impact(model_dict, news_df):
-    # --- Cấu hình ---
-    VALID_IMPACTS = {"Tích cực", "Tiêu cực", "Trung lập"} # Dùng set để kiểm tra nhanh hơn (O(1))
-    DEFAULT_IMPACT = "Trung lập"
+    """
+    Phân tích tác động của tin tức, được viết lại theo cấu trúc của hàm
+    phân tích lĩnh vực để tăng độ ổn định.
+    """
     num_news = len(news_df)
-
     if num_news == 0:
         return []
+        
+    VALID_IMPACTS = {"Tích cực", "Tiêu cực", "Trung lập"}
+    DEFAULT_IMPACT = "Trung lập"
 
-    # --- Prompt Engineering ---
+    # --- Prompt Engineering: Áp dụng cấu trúc prompt của hàm chạy ổn định ---
     system_prompt = """
-    Bạn là một chuyên gia phân tích thị trường chứng khoán Việt Nam.
-    Nhiệm vụ của bạn là đánh giá tác động của tin tức đến thị trường chứng khoán Việt Nam.
+Bạn là một chuyên gia phân tích thị trường chứng khoán (TTCK) Việt Nam.
+Nhiệm vụ của bạn là phân loại tác động của mỗi tin tức sau đây.
 
-    Hãy phân loại mỗi tin tức thành 1 trong 3 loại:
-    - "Tích cực": Tin tức có tác động tích cực đến thị trường chứng khoán VN.
-    - "Tiêu cực": Tin tức có tác động tiêu cực đến thị trường chứng khoán VN.
-    - "Trung lập": Tin tức không có tác động rõ ràng hoặc cân bằng.
+### HƯỚNG DẪN ###
+1. Phân loại mỗi tin tức vào 1 trong 3 nhóm: "Tích cực", "Tiêu cực", hoặc "Trung lập".
+2. "Tích cực": Tin có lợi cho thị trường chung.
+3. "Tiêu cực": Tin có hại cho thị trường chung.
+4. "Trung lập": Tin không ảnh hưởng rõ ràng hoặc tin tức nhân sự, xã hội.
 
-    Chỉ trả về kết quả theo format: Tích cực|Tiêu cực|Trung lập|...
-    Không giải thích, chỉ trả về danh sách phân loại cách nhau bởi dấu |
+### QUY TẮC FORMAT ĐẦU RA (RẤT QUAN TRỌNG) ###
+- Chỉ trả về kết quả theo format: Phân loại 1|Phân loại 2|Phân loại 3|...
+- Mỗi tin tức được phân tách bằng dấu gạch đứng `|`.
+- Tuyệt đối KHÔNG giải thích, KHÔNG thêm ghi chú, chỉ trả về chuỗi kết quả.
     """
 
-    # Dùng list comprehension để tạo danh sách tin tức ngắn gọn hơn
     news_items = [
         f"Tin {idx + 1}:\nTiêu đề: {row['title']}\nNội dung: {row['content']}"
         for idx, row in news_df.iterrows()
     ]
-    full_prompt = system_prompt + "\n\nDanh sách tin tức cần phân tích:\n\n" + "\n\n".join(news_items)
+    full_prompt = system_prompt + "\n\n--- DANH SÁCH TIN TỨC CẦN PHÂN TÍCH ---\n\n" + "\n\n".join(news_items)
 
-    # --- Gọi API và Xử lý kết quả ---
+    # --- Gọi API và Xử lý kết quả: Mô phỏng logic của hàm chạy ổn định ---
     try:
-        response = generate_content_with_model_dict(model_dict, full_prompt)
-        raw_impacts = [item.strip() for item in response.strip().split('|')]
+        # Luôn sử dụng hàm gọi API mạnh mẽ nhất
+        response_text = generate_content_with_model_dict(model_dict, full_prompt)
+        
+        if not response_text:
+            print("Lỗi: Không nhận được phản hồi từ API. Trả về giá trị mặc định.")
+            return [DEFAULT_IMPACT] * num_news
 
-        # Cảnh báo nếu số lượng không khớp
+        # Tách kết quả cho từng tin tức
+        raw_impacts = [item.strip() for item in response_text.strip().split('|')]
+
         if len(raw_impacts) != num_news:
-            print(f"Cảnh báo: Số lượng kết quả ({len(raw_impacts)}) không khớp với số tin tức ({num_news})")
+            print(
+                f"Cảnh báo: Số lượng kết quả ({len(raw_impacts)}) "
+                f"không khớp với số lượng tin tức ({num_news})."
+            )
 
-        # Hợp nhất việc kiểm tra độ dài và xác thực giá trị vào một vòng lặp
-        cleaned_impacts = []
+        processed_impacts = []
         for i in range(num_news):
-            # Lấy kết quả từ AI nếu có, ngược lại dùng giá trị mặc định
-            impact = raw_impacts[i] if i < len(raw_impacts) else DEFAULT_IMPACT
+            # Lấy kết quả nếu có, nếu không thì dùng giá trị rỗng để xử lý ở bước sau
+            impact_value = raw_impacts[i] if i < len(raw_impacts) else ""
             
-            # Xác thực giá trị, nếu không hợp lệ thì dùng giá trị mặc định
-            if impact not in VALID_IMPACTS:
-                if i < len(raw_impacts): # Chỉ in cảnh báo cho giá trị thực sự không hợp lệ
-                    print(f"Giá trị không hợp lệ '{impact}', thay thế bằng '{DEFAULT_IMPACT}'")
-                impact = DEFAULT_IMPACT
-            
-            cleaned_impacts.append(impact)
-            
-        return cleaned_impacts
+            # Kiểm tra tính hợp lệ, nếu không hợp lệ hoặc rỗng thì dùng default
+            if impact_value in VALID_IMPACTS:
+                processed_impacts.append(impact_value)
+            else:
+                if impact_value != "": # Chỉ in cảnh báo nếu AI trả về giá trị sai
+                    print(f"Giá trị không hợp lệ '{impact_value}', thay thế bằng '{DEFAULT_IMPACT}'")
+                processed_impacts.append(DEFAULT_IMPACT)
+                
+        return processed_impacts
 
     except Exception as e:
-        print(f"Lỗi khi gọi API Gemini: {e}")
+        print(f"Lỗi nghiêm trọng khi gọi API hoặc xử lý dữ liệu: {e}")
         return [DEFAULT_IMPACT] * num_news
+
     
 def identify_major_news(model_dict, news_df: pd.DataFrame) -> pd.DataFrame:
     # Tạo sẵn cột mới với giá trị mặc định là chuỗi rỗng
@@ -403,7 +455,7 @@ def identify_major_news(model_dict, news_df: pd.DataFrame) -> pd.DataFrame:
             continue
 
         # 1. Xác định số lượng tin cần chọn
-        num_to_select = 2 if news_type == 'doanh_nghiep' else 1
+        num_to_select = 1
         
         # Nếu số tin trong nhóm ít hơn số cần chọn, chỉ cần chọn hết
         if len(group_df) <= num_to_select:

@@ -8,6 +8,7 @@ from alpha_vantage.foreignexchange import ForeignExchange
 
 # === AI & Generative ===
 import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 # === Data Analysis & Visualization ===
 from fpdf import FPDF

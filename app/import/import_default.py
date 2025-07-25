@@ -9,7 +9,7 @@ import copy
 import time
 import random
 from datetime import timedelta, datetime, timezone
-from typing import cast
+from typing import cast, Dict, Optional
 import math
 
 # === Phân tích Dữ liệu (Data Analysis) ===
