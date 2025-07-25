@@ -308,31 +308,27 @@ def convert_published_time(time_str):
         return pd.NaT
 
     try:
-        # Format từ VietStock: "Sat, 12 Jul 2025 17:44:43 +0700"
+        # Format: "Sat, 12 Jul 2025 17:44:43 +0700"
         if "," in time_str and "+" in time_str:
-            # Loại bỏ timezone và parse
             time_str_clean = time_str.split("+")[0].strip()
             return pd.to_datetime(time_str_clean, format="%a, %d %b %Y %H:%M:%S")
-
-        # Format từ CafeF: "2025-07-12T07:13:17"
+        # Format: "Fri, 25 Jul 2025 06:56:10 GMT"
+        elif time_str.endswith("GMT"):
+            time_str_clean = time_str.replace("GMT", "").strip()
+            return pd.to_datetime(time_str_clean, format="%a, %d %b %Y %H:%M:%S")
+        # Format: "2025-07-12T07:13:17"
         elif "T" in time_str:
             return pd.to_datetime(time_str, format="%Y-%m-%dT%H:%M:%S")
-
-        # Format từ VietnamBiz: "14:31 | 16/07/2025"
+        # Format: "14:31 | 16/07/2025"
         elif "|" in time_str:
-            # Tách thời gian và ngày
             time_part, date_part = time_str.split("|")
             time_part = time_part.strip()
             date_part = date_part.strip()
-            # Kết hợp thành format đầy đủ
             full_datetime_str = f"{date_part} {time_part}"
             return pd.to_datetime(full_datetime_str, format="%d/%m/%Y %H:%M")
-
         # Thử parse tự động cho các format khác
         else:
             return pd.to_datetime(time_str)
-
-
     except Exception as e:
         print(f"Không thể chuyển đổi thời gian: {time_str}, lỗi: {e}")
         return pd.NaT
@@ -350,6 +346,7 @@ def get_data_from_av(from_symbol, to_symbol, column_name):
     except Exception as e:
         print(f"❌ LỖI khi lấy dữ liệu {column_name}: {e}")
         return None
+
 
 def get_vietnambiz_articles_list(url, max_articles):
     """
@@ -377,7 +374,7 @@ def get_vietnambiz_articles_list(url, max_articles):
         if list_news:
             # Tìm tất cả các item trong list-news
             news_items = list_news.find_all("div", class_="item")
-            
+
             for item in news_items:
                 # Tìm title trong h3.title > a
                 title_element = item.find("h3", class_="title")
@@ -386,15 +383,15 @@ def get_vietnambiz_articles_list(url, max_articles):
                     if title_link and title_link.get("href"):
                         href = title_link.get("href")
                         title = title_link.get_text(strip=True)
-                        
+
                         # Chuẩn hóa URL
                         if href.startswith("/"):
                             href = "https://vietnambiz.vn" + href
-                        
+
                         # Kiểm tra URL không trùng lặp
                         if href not in [a["url"] for a in article_links]:
                             article_links.append({"url": href, "title": title})
-                            
+
                             # Dừng khi đã đủ số lượng cần thiết
                             if len(article_links) >= max_articles:
                                 break
@@ -406,18 +403,18 @@ def get_vietnambiz_articles_list(url, max_articles):
             for article_div in main_articles:
                 if len(article_links) >= max_articles:
                     break
-                    
+
                 title_link = article_div.find("h2", class_="title")
                 if title_link:
                     link = title_link.find("a")
                     if link and link.get("href"):
                         href = link.get("href")
                         title = link.get_text(strip=True)
-                        
+
                         # Chuẩn hóa URL
                         if href.startswith("/"):
                             href = "https://vietnambiz.vn" + href
-                        
+
                         if href not in [a["url"] for a in article_links]:
                             article_links.append({"url": href, "title": title})
 
@@ -435,7 +432,8 @@ def get_vietnambiz_articles_list(url, max_articles):
     except Exception as e:
         print(f"Lỗi khi lấy danh sách bài viết từ VietnamBiz: {e}")
         return []
-    
+
+
 def get_article_vietnambiz(url):
     """
     Lấy nội dung chi tiết một bài viết từ VietnamBiz (cấu trúc giống get_article_cafef)
@@ -524,11 +522,11 @@ def get_article_vietnambiz(url):
         # Tìm nội dung bài viết
         # Strategy 1: Tìm trong vnbcbc-body (nội dung chính)
         content_div = soup.find("div", class_="vnbcbc-body")
-        
+
         # Strategy 2: Fallback - tìm trong article-body-content
         if not content_div:
             content_div = soup.find("div", class_="article-body-content")
-        
+
         # Strategy 3: Fallback - tìm trong post-body-content
         if not content_div:
             content_div = soup.find("div", class_="post-body-content")
@@ -545,7 +543,7 @@ def get_article_vietnambiz(url):
 
         # Lấy nội dung từ thẻ p và h2, h3
         article_content = ""
-        
+
         # Lấy sapo (mô tả ngắn) nếu có
         sapo_div = soup.find("div", class_="vnbcbc-sapo")
         if sapo_div:
@@ -555,14 +553,14 @@ def get_article_vietnambiz(url):
 
         # Lấy nội dung từ các thẻ h2, h3, p
         content_elements = content_div.find_all(["h2", "h3", "p"])
-        
+
         for element in content_elements:
             # Bỏ qua các thẻ có class không mong muốn
             if element.get("class"):
                 element_classes = element.get("class")
                 if any(cls in ["author", "source", "time", "caption", "PhotoCMS_Caption"] for cls in element_classes):
                     continue
-            
+
             # Bỏ qua nội dung trong figcaption
             if element.find_parent("figcaption"):
                 continue
@@ -584,6 +582,7 @@ def get_article_vietnambiz(url):
     except Exception as e:
         print(f"Lỗi khi lấy bài viết từ VietnamBiz: {e}")
         return "", ""
+
 
 def get_vietnambiz_published_time(url):
     """
@@ -634,8 +633,8 @@ def get_vietnambiz_published_time(url):
 
         # Strategy 4: Tìm trong các thẻ có class liên quan đến time/date
         time_elements = soup.find_all(
-            ["span", "div", "time"], 
-            class_=lambda x: x and any(keyword in x.lower() for keyword in ["time", "date", "publish", "vnbcba-time"])
+            ["span", "div", "time"],
+            class_=lambda x: x and any(keyword in x.lower() for keyword in ["time", "date", "publish", "vnbcba-time"]),
         )
         for elem in time_elements:
             text = elem.get_text(strip=True)
@@ -656,3 +655,66 @@ def get_vietnambiz_published_time(url):
     except Exception as e:
         print(f"Lỗi khi lấy thời gian đăng bài từ VietnamBiz: {e}")
         return ""
+
+
+def get_article_cafef_vneconomy(rss_url, num_articles):
+    articles_list = []
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    response = None
+    for attempt in range(3):
+        try:
+            response = requests.get(rss_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            break
+        except requests.exceptions.RequestException as e:
+            if attempt < 2:
+                time.sleep(2)
+            else:
+                return []
+    if response is None:
+        return []
+
+    try:
+        feed = feedparser.parse(response.text)
+        if feed.bozo:
+            print(f"Lỗi: RSS feed không hợp lệ hoặc không thể truy cập: {feed.bozo_exception}")
+            return []
+
+        # Lấy tên nguồn từ tiêu đề của kênh hoặc từ domain của link
+        if "title" in feed.feed:
+            source_name = feed.feed.title.split("-")[0].strip().lower().replace(" ", "")
+        else:
+            parsed_uri = urlparse(rss_url)
+            source_name = parsed_uri.netloc.replace("www.", "").split(".")[0]
+
+        # Lặp qua các bài báo trong feed
+        for entry in feed.entries[:num_articles]:
+            content_html = entry.get("content", [{}])[0].get("value", "") or entry.get("summary", "")
+            soup = BeautifulSoup(content_html, "html.parser")
+            content_text = "\n".join(p.get_text(strip=True) for p in soup.find_all("p"))
+
+            # Lấy URL hình ảnh
+            image_url = None
+            if "media_content" in entry and entry.media_content:
+                image_url = entry.media_content[0].get("url")
+            else:
+                img_tag = soup.find("img")
+                if img_tag:
+                    image_url = img_tag.get("src")
+
+            article_dict = {
+                "source": source_name,
+                "title": entry.get("title", "Không có tiêu đề"),
+                "content": content_text.strip(),
+                "image_url": image_url,
+                "article_url": entry.get("link", ""),
+                "published_time": getattr(entry, "published", ""),
+            }
+            articles_list.append(article_dict)
+    except Exception as e:
+        print(f"Đã có lỗi xảy ra khi xử lý RSS: {e}")
+        return []
+
+    return articles_list

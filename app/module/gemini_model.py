@@ -213,7 +213,7 @@ def generate_content_with_model_dict(
     # Nếu tất cả model đều thất bại sau tất cả các lần thử
     raise Exception("❌ Tất cả model trong danh sách đều đã thất bại.")
 
-def summary_daily_article(model_dict, content, news_type):
+def summary_daily_article(model_dict, content):
     def count_words(text):
         """Đếm số từ trong văn bản tiếng Việt"""
         # Loại bỏ ký tự xuống dòng và khoảng trắng thừa
@@ -231,27 +231,6 @@ def summary_daily_article(model_dict, content, news_type):
         else:
             word_requirement = "- NGHIÊM NGẶT: 5 CÂU VĂN, mỗi câu ĐÚNG 14 từ, không nhiều hơn, không ít hơn"
         
-        # if news_type == "doanh_nghiep":
-        #     return f"""
-        #         Tóm tắt bài báo sau:
-        #         {content}
-
-        #         YÊU CẦU NGHIÊM NGẶT:
-        #         {word_requirement}
-        #         - BAO GỒM SỐ LIỆU CỤ THỂ
-        #         - KHÔNG DÙNG CỤM TỪ GIỚI THIỆU
-                
-        #         QUY TẮC VỀ MÃ CỔ PHIẾU:
-        #         - Nếu có mã cổ phiếu trong bài báo: Bắt đầu câu đầu tiên bằng "MÃ_CỔ_PHIẾU: Nội dung..." (VD: HPG: Doanh thu Q4 tăng 25%)
-        #         - Nếu KHÔNG có mã cổ phiếu: Bắt đầu trực tiếp bằng nội dung chính
-        #         - TUYỆT ĐỐI KHÔNG viết "MÃ:" hoặc sử dụng ngoặc vuông []
-        #         - CHỈ sử dụng mã cổ phiếu thực tế có trong bài báo
-                
-        #         Ví dụ đúng:
-        #         - Có mã cổ phiếu: "VIC: Cổ phiếu tăng trần lên 101.600 đồng. Tài sản tỷ phú Vượng tăng 12.000 tỷ. Dự án Cần Giờ được phê duyệt 2025."
-        #         - Không có mã: "Thị trường chứng khoán tăng 2,3% tuần qua. VN-Index đạt 1.250 điểm. Thanh khoản đạt 20.000 tỷ đồng."
-        #     """
-        # else:
         return f"""
             Tóm tắt bài báo sau:
             {content}
@@ -262,10 +241,11 @@ def summary_daily_article(model_dict, content, news_type):
             - KHÔNG DÙNG CỤM TỪ GIỚI THIỆU
             - TRÌNH BÀY THÔNG TIN CỐT LÕI NHẤT
             - BẮT ĐẦU TRỰC TIẾP BẰNG NỘI DUNG CHÍNH
+            - **ĐẶC BIỆT QUAN TRỌNG**: Viết thành 1 đoạn văn duy nhất
         """
     
-    # Thử tối đa 3 lần để có được kết quả trong khoảng 30-40 từ
-    max_attempts = 3
+    # Thử tối đa 5 lần để có được kết quả trong khoảng 30-40 từ
+    max_attempts = 5
     
     for attempt in range(1, max_attempts + 1):
         try:
@@ -290,7 +270,7 @@ def summary_daily_article(model_dict, content, news_type):
     # Fallback (không bao giờ đến đây nhưng để đảm bảo)
     return generate_content_with_model_dict(model_dict, create_prompt())
 
-def summary_weekly_article(model_dict, content, news_type):
+def summary_weekly_article(model_dict, content):
     def count_words(text):
         """Đếm số từ trong văn bản tiếng Việt"""
         # Loại bỏ ký tự xuống dòng và khoảng trắng thừa
@@ -308,43 +288,23 @@ def summary_weekly_article(model_dict, content, news_type):
         else:
             word_requirement = "- NGHIÊM NGẶT: 3 CÂU VĂN, mỗi câu ĐÚNG 14 từ, không nhiều hơn, không ít hơn"
         
-        if news_type == "doanh_nghiep":
-            return f"""
-                Tóm tắt bài báo sau:
-                {content}
+        return f"""
+            Tóm tắt bài báo sau:
+            {content}
 
-                YÊU CẦU NGHIÊM NGẶT:
-                {word_requirement}
-                - BAO GỒM SỐ LIỆU CỤ THỂ
-                - KHÔNG DÙNG CỤM TỪ GIỚI THIỆU
-                
-                QUY TẮC VỀ MÃ CỔ PHIẾU:
-                - Nếu có mã cổ phiếu trong bài báo: Bắt đầu câu đầu tiên bằng "MÃ_CỔ_PHIẾU: Nội dung..." (VD: HPG: Doanh thu Q4 tăng 25%)
-                - Nếu KHÔNG có mã cổ phiếu: Bắt đầu trực tiếp bằng nội dung chính
-                - TUYỆT ĐỐI KHÔNG viết "MÃ:" hoặc sử dụng ngoặc vuông []
-                - CHỈ sử dụng mã cổ phiếu thực tế có trong bài báo
-                
-                Ví dụ đúng:
-                - Có mã cổ phiếu: "VIC: Cổ phiếu tăng trần lên 101.600 đồng. Tài sản tỷ phú Vượng tăng 12.000 tỷ. Dự án Cần Giờ được phê duyệt 2025."
-                - Không có mã: "Thị trường chứng khoán tăng 2,3% tuần qua. VN-Index đạt 1.250 điểm. Thanh khoản đạt 20.000 tỷ đồng."
-            """
-        else:
-            return f"""
-                Tóm tắt bài báo sau:
-                {content}
-
-                YÊU CẦU NGHIÊM NGẶT:
-                {word_requirement}
-                - BAO GỒM SỐ LIỆU CỤ THỂ
-                - KHÔNG DÙNG CỤM TỪ GIỚI THIỆU
-                - TRÌNH BÀY THÔNG TIN CỐT LÕI NHẤT
-                - BẮT ĐẦU TRỰC TIẾP BẰNG NỘI DUNG CHÍNH
-                
-                Ví dụ: Lạm phát tháng 12 tăng 3,2% so với cùng kỳ. Giá xăng dầu giảm 5% trong tuần qua. GDP quý 4 tăng trưởng 6,8%.
-            """
+            YÊU CẦU NGHIÊM NGẶT:
+            {word_requirement}
+            - BAO GỒM SỐ LIỆU CỤ THỂ
+            - KHÔNG DÙNG CỤM TỪ GIỚI THIỆU
+            - TRÌNH BÀY THÔNG TIN CỐT LÕI NHẤT
+            - BẮT ĐẦU TRỰC TIẾP BẰNG NỘI DUNG CHÍNH
+            - **ĐẶC BIỆT QUAN TRỌNG**: Viết thành 1 đoạn văn duy nhất
+            
+            Ví dụ: Lạm phát tháng 12 tăng 3,2% so với cùng kỳ. Giá xăng dầu giảm 5% trong tuần qua. GDP quý 4 tăng trưởng 6,8%.
+        """
     
-    # Thử tối đa 3 lần để có được kết quả trong khoảng 30-40 từ
-    max_attempts = 3
+    # Thử tối đa 5 lần để có được kết quả trong khoảng 30-40 từ
+    max_attempts = 5
     
     for attempt in range(1, max_attempts + 1):
         try:
@@ -415,12 +375,6 @@ Nhiệm vụ của bạn là phân loại tác động của mỗi tin tức sau
 
         # Tách kết quả cho từng tin tức
         raw_impacts = [item.strip() for item in response_text.strip().split('|')]
-
-        if len(raw_impacts) != num_news:
-            print(
-                f"Cảnh báo: Số lượng kết quả ({len(raw_impacts)}) "
-                f"không khớp với số lượng tin tức ({num_news})."
-            )
 
         processed_impacts = []
         for i in range(num_news):
@@ -564,14 +518,6 @@ def analyze_news_sectors(model_dict, news_df):
         # Tách kết quả cho từng tin tức
         raw_sectors_per_news = [item.strip() for item in response.strip().split('|')]
 
-        # Cảnh báo nếu số lượng kết quả trả về không khớp
-        if len(raw_sectors_per_news) != num_news:
-            print(
-                f"Cảnh báo: Số lượng kết quả ({len(raw_sectors_per_news)}) "
-                f"không khớp với số lượng tin tức ({num_news}). "
-                f"Sẽ xử lý dựa trên những gì nhận được."
-            )
-
         processed_sectors = []
         for i in range(num_news):
             if i < len(raw_sectors_per_news) and raw_sectors_per_news[i]:
@@ -592,3 +538,104 @@ def analyze_news_sectors(model_dict, news_df):
         print(f"Lỗi nghiêm trọng khi gọi API hoặc xử lý dữ liệu: {e}")
         # Trả về danh sách các chuỗi rỗng có độ dài bằng số tin tức khi có lỗi
         return [''] * num_news
+    
+def get_filtered_news_index(model_dict, news_df, num_articles, max_retry=3):
+    for _ in range(max_retry):
+        prompt = f"""
+            Từ dữ liệu văn bản tôi cung cấp dưới đây, hãy thực hiện quy trình phân loại và chắt lọc theo các hướng dẫn chi tiết sau:
+
+            1. Mô tả Dữ liệu đầu vào:
+            Dữ liệu đầu vào là một khối văn bản (text block). Mỗi dòng trong khối văn bản này là một tiêu đề tin tức riêng biệt, có thể nằm trong dấu ngoặc kép. Các tiêu đề được đánh chỉ số (index) theo thứ tự xuất hiện một cách tự nhiên, bắt đầu từ 0 cho dòng đầu tiên.
+
+            2. Quy trình Thực hiện:
+
+            Bước A: Phân loại toàn bộ các tiêu đề.
+            Hãy đọc từng tiêu đề và phân chúng vào 3 nhóm sau:
+            - Nhóm 1 (`trong_nuoc`): Các tin tức về kinh tế vĩ mô, chính sách, pháp luật, và các sự kiện chung trong phạm vi Việt Nam.
+            - Nhóm 2 (`quoc_te`): Các tin tức về kinh tế, chính trị, tài chính diễn ra bên ngoài Việt Nam.
+            - Nhóm 3 (`doanh_nghiep`): Các tin tức liên quan đến một doanh nghiệp, tập đoàn cụ thể tại Việt Nam, đặc biệt ưu tiên các doanh nghiệp có mã chứng khoán niêm yết trên sàn.
+
+            Bước B: Loại bỏ các tin có cùng một nội dung hoặc chủ đề.
+            - Nếu có nhiều tiêu đề cùng nói về một sự kiện, chính sách, doanh nghiệp, số liệu, hoặc chỉ khác nhau về cách diễn đạt, ngày tháng, số liệu chi tiết… thì chỉ giữ lại duy nhất một tiêu đề nổi bật nhất, đầy đủ, tổng quát, đại diện cho chủ đề đó.
+            - Không chọn các tiêu đề chỉ khác nhau về thời gian, số liệu, hoặc chỉ là bản cập nhật/bổ sung của cùng một chủ đề.
+            - Ưu tiên giữ lại tiêu đề tổng hợp, khái quát, có giá trị thông tin cao nhất. Loại bỏ các tiêu đề còn lại bị trùng lặp về nội dung hoặc chỉ là bản cập nhật/bổ sung.
+
+            Bước C: Chắt lọc {num_articles} tin nổi bật nhất từ mỗi nhóm.
+            Sau khi đã phân loại, từ mỗi nhóm hãy chọn ra đúng {num_articles} tiêu đề quan trọng và có tác động mạnh mẽ nhất dựa trên các tiêu chí ưu tiên sau:
+            - Đối với nhóm `trong_nuoc`: Ưu tiên tin về chính sách tiền tệ (lãi suất, tỷ giá), chính sách tài khóa, văn bản pháp quy mới, dự báo GDP, và các sự kiện trọng yếu của thị trường chứng khoán (VN-Index lập đỉnh, thông tin nâng hạng).
+            - Đối với nhóm `quoc_te`: Ưu tiên tin về quyết định của các ngân hàng trung ương lớn (Fed, ECB), kinh tế các quốc gia hàng đầu (Mỹ, Trung Quốc), căng thẳng/thỏa thuận thương mại toàn cầu.
+            - Đối với nhóm `doanh_nghiep`: Ưu tiên tin về một doanh nghiệp niêm yết cụ thể có tác động lớn: dự án đầu tư ngàn tỷ, kết quả kinh doanh kỷ lục, các vụ việc pháp lý lớn (bồi thường, thanh tra). Tránh các tin nói về cùng lúc nhiều doanh nghiệp hoặc chỉ là thông tin chung chung về ngành.
+
+            3. Định dạng Kết quả đầu ra:
+
+            - Kết quả cuối cùng phải là một dãy số gồm đúng {num_articles*3} số nguyên, mỗi số là index (bắt đầu từ 0) của các tiêu đề nổi bật đã được chọn ở Bước B.
+            - Thứ tự các số như sau: {num_articles} index của nhóm `trong_nuoc` trước, tiếp theo là {num_articles} index của nhóm `quoc_te`, cuối cùng là {num_articles} index của nhóm `doanh_nghiep`.
+            - Các số cách nhau bằng dấu phẩy, không có ký tự hoặc giải thích nào khác.
+
+            - Ví dụ về định dạng kết quả đầu ra:
+            0,5,12,25,30,41,55,67,88,92,2,8,15,16,22,31,49,50,71,80,1,3,9,11,23,33,45,66,77,99
+
+            Yêu cầu cuối cùng: Vui lòng chỉ trả về duy nhất dãy số theo đúng định dạng trên, không giải thích gì thêm.
+
+            (Dữ liệu thô đầu vào ở phía bên dưới dòng này)
+            {news_df['title'].to_csv(index=False, sep='|', lineterminator='\\n')}
+        """
+        news_index_string = generate_content_with_model_dict(model_dict, prompt)
+        # Chuẩn hóa chuỗi trả về
+        news_index_string = news_index_string.strip().replace('\n', '').replace(' ', '')
+        # Regex kiểm tra đúng định dạng: đúng num_articles*3 số nguyên, phân tách bằng dấu phẩy, không ký tự thừa
+        pattern = rf'^(\d+,){{{num_articles*3-1}}}\d+$'
+        if re.match(pattern, news_index_string):
+            index_list = [int(x) for x in news_index_string.split(',')]
+            if len(index_list) == num_articles * 3:
+                return {
+                    "trong_nuoc": index_list[:num_articles],
+                    "quoc_te": index_list[num_articles:2*num_articles],
+                    "doanh_nghiep": index_list[2*num_articles:3*num_articles]
+                }
+    # Nếu sau max_retry lần vẫn không đúng, raise error
+    raise ValueError(f"get_filtered_news_index trả về kết quả không đúng định dạng sau {max_retry} lần thử!")
+
+def get_top_news_index(model_dict, news_df, news_type, num_articles, max_retry=10):
+    """
+    Chọn ra đúng num_articles tin nổi bật nhất toàn bộ (không phân nhóm), trả về list index.
+    """
+    for _ in range(max_retry):
+        prompt = f"""
+            Từ dữ liệu văn bản tôi cung cấp dưới đây, hãy thực hiện quy trình chọn lọc theo các hướng dẫn chi tiết sau:
+
+            1. Dữ liệu đầu vào:
+            - Là một khối văn bản, mỗi dòng gồm chỉ số index gốc và tiêu đề tin tức, index này có thể không liên tiếp và không bắt đầu từ 0.
+
+            2. Quy trình thực hiện:
+
+            Bước A: Loại bỏ các tin có cùng một nội dung hoặc chủ đề.
+            - Nếu có nhiều tiêu đề cùng nói về một sự kiện, chính sách, doanh nghiệp, số liệu, hoặc chỉ khác nhau về cách diễn đạt, ngày tháng, số liệu chi tiết… thì chỉ giữ lại duy nhất một tiêu đề nổi bật nhất, đầy đủ, tổng quát, đại diện cho chủ đề đó.
+            - Không chọn các tiêu đề chỉ khác nhau về thời gian, số liệu, hoặc chỉ là bản cập nhật/bổ sung của cùng một chủ đề.
+            - Ưu tiên giữ lại tiêu đề tổng hợp, khái quát, có giá trị thông tin cao nhất. Loại bỏ các tiêu đề còn lại bị trùng lặp về nội dung hoặc chỉ là bản cập nhật/bổ sung.
+
+            Bước B: Chọn ra đúng {num_articles} tiêu đề tin tức nổi bật nhất so với tất cả các tin còn lại.
+            - Ưu tiên các tin có tác động lớn đến kinh tế vĩ mô, chính sách, thị trường tài chính, các sự kiện quốc tế quan trọng, hoặc các doanh nghiệp lớn có ảnh hưởng mạnh.
+            - Ưu tiên các tin có tính mới, độc đáo, ảnh hưởng rộng, hoặc liên quan đến các quyết định chính sách lớn, các sự kiện bất thường, các số liệu kinh tế quan trọng, hoặc các sự kiện doanh nghiệp quy mô lớn.
+            - Không chọn các tin chỉ mang tính cập nhật nhỏ, lặp lại, hoặc không có tác động rõ rệt.
+
+            3. Định dạng kết quả đầu ra:
+            - Chỉ trả về một dãy số gồm đúng {num_articles} số nguyên, mỗi số là index của các tiêu đề nổi bật nhất đã được chọn ở Bước B.
+            - Các số cách nhau bằng dấu phẩy, không có ký tự hoặc giải thích nào khác.
+
+            - Ví dụ về định dạng kết quả đầu ra:
+            0,5,12,25,30
+
+            Yêu cầu cuối cùng: Vui lòng chỉ trả về duy nhất dãy số theo đúng định dạng trên, không giải thích gì thêm.
+
+            (Dữ liệu thô đầu vào ở phía bên dưới dòng này)
+            {news_df[news_df['news_type'] == news_type]['title'].to_csv(index=True, sep='|', lineterminator='\\n')}
+        """
+        news_index_string = generate_content_with_model_dict(model_dict, prompt)
+        news_index_string = news_index_string.strip().replace('\n', '').replace(' ', '')
+        pattern = rf'^(\d+,){{{num_articles-1}}}\d+$'
+        if re.match(pattern, news_index_string):
+            index_list = [int(x) for x in news_index_string.split(',')]
+            if len(index_list) == num_articles:
+                return index_list
+    raise ValueError(f"get_top_news_index trả về kết quả không đúng định dạng sau {max_retry} lần thử!")
