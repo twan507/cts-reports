@@ -162,6 +162,7 @@ def select_standard_models(model_list: list[str]) -> list[str]:
 def generate_content_with_model_dict(
     model_dict: Dict[str, genai.GenerativeModel], 
     prompt: str,
+    function_name: str = "unknown",
     retries_per_model: int = 2
 ) -> str:
     """
@@ -199,13 +200,14 @@ def generate_content_with_model_dict(
 
                 # KIỂM TRA QUAN TRỌNG: Chỉ truy cập .text nếu có nội dung trả về
                 if response.parts:
+                    print(f"✅ Model '{model_name}' thành công lần {attempt+1}/{retries_per_model} tại hàm {function_name}.")
                     return response.text
                 else:
                     # Xử lý trường hợp phản hồi bị chặn (RECITATION, SAFETY,...)
                     reason = "Unknown"
                     if response.prompt_feedback and response.prompt_feedback.block_reason:
                         reason = response.prompt_feedback.block_reason.name
-                    print(f"CẢNH BÁO: Model '{model_name}' lỗi lần {attempt+1}/{retries_per_model}. Lý do: {reason}.")
+                    print(f"⚠️ Model '{model_name}' lỗi lần {attempt+1}/{retries_per_model} tại hàm {function_name}. Lý do: {reason}.")
                     time.sleep(1) # Chờ một chút trước khi thử lại
             except Exception as e:
                 time.sleep(1) # Chờ một chút trước khi thử lại
@@ -250,7 +252,7 @@ def summary_daily_article(model_dict, content):
     for attempt in range(1, max_attempts + 1):
         try:
             prompt = create_prompt(attempt)
-            result = generate_content_with_model_dict(model_dict, prompt)
+            result = generate_content_with_model_dict(model_dict, prompt, 'summary_daily_article')
             
             # Đếm số từ
             word_count = count_words(result)
@@ -268,7 +270,7 @@ def summary_daily_article(model_dict, content):
                 raise e
     
     # Fallback (không bao giờ đến đây nhưng để đảm bảo)
-    return generate_content_with_model_dict(model_dict, create_prompt())
+    return generate_content_with_model_dict(model_dict, create_prompt(), 'summary_daily_article')
 
 def summary_weekly_article(model_dict, content):
     def count_words(text):
@@ -309,7 +311,7 @@ def summary_weekly_article(model_dict, content):
     for attempt in range(1, max_attempts + 1):
         try:
             prompt = create_prompt(attempt)
-            result = generate_content_with_model_dict(model_dict, prompt)
+            result = generate_content_with_model_dict(model_dict, prompt, 'summary_weekly_article')
             
             # Đếm số từ
             word_count = count_words(result)
@@ -327,7 +329,7 @@ def summary_weekly_article(model_dict, content):
                 raise e
     
     # Fallback (không bao giờ đến đây nhưng để đảm bảo)
-    return generate_content_with_model_dict(model_dict, create_prompt())
+    return generate_content_with_model_dict(model_dict, create_prompt(), 'summary_weekly_article')
 
 def analyze_news_impact(model_dict, news_df):
     """
@@ -367,8 +369,8 @@ Nhiệm vụ của bạn là phân loại tác động của mỗi tin tức sau
     # --- Gọi API và Xử lý kết quả: Mô phỏng logic của hàm chạy ổn định ---
     try:
         # Luôn sử dụng hàm gọi API mạnh mẽ nhất
-        response_text = generate_content_with_model_dict(model_dict, full_prompt)
-        
+        response_text = generate_content_with_model_dict(model_dict, full_prompt, 'analyze_news_impact')
+
         if not response_text:
             print("Lỗi: Không nhận được phản hồi từ API. Trả về giá trị mặc định.")
             return [DEFAULT_IMPACT] * num_news
@@ -396,12 +398,13 @@ Nhiệm vụ của bạn là phân loại tác động của mỗi tin tức sau
         return [DEFAULT_IMPACT] * num_news
 
     
-def identify_major_news(model_dict, news_df: pd.DataFrame) -> pd.DataFrame:
+def identify_major_selected(model_dict, news_df: pd.DataFrame) -> pd.DataFrame:
+    news_df = news_df.copy()
     # Tạo sẵn cột mới với giá trị mặc định là chuỗi rỗng
-    news_df['major_news'] = ''
+    news_df['major_selected'] = ''
     
     # Danh sách để thu thập tất cả các index của tin tức nổi bật
-    major_news_indices = []
+    major_selected_indices = []
 
     # Bắt đầu gom nhóm theo 'news_type'
     for news_type, group_df in news_df.groupby('news_type'):
@@ -413,7 +416,7 @@ def identify_major_news(model_dict, news_df: pd.DataFrame) -> pd.DataFrame:
         
         # Nếu số tin trong nhóm ít hơn số cần chọn, chỉ cần chọn hết
         if len(group_df) <= num_to_select:
-            major_news_indices.extend(group_df.index.tolist())
+            major_selected_indices.extend(group_df.index.tolist())
             continue
 
         # 2. Tối ưu hóa Prompt cho từng nhóm
@@ -454,19 +457,19 @@ def identify_major_news(model_dict, news_df: pd.DataFrame) -> pd.DataFrame:
 
         # 3. Gọi AI và xử lý kết quả
         try:
-            response = generate_content_with_model_dict(model_dict, full_prompt)
+            response = generate_content_with_model_dict(model_dict, full_prompt, 'identify_major_selected')
             selected_ids = [int(id_str) for id_str in re.findall(r'\d+', response)]
-            major_news_indices.extend(selected_ids)
+            major_selected_indices.extend(selected_ids)
 
         except Exception as e:
             print(f"Lỗi khi lựa chọn tin chính của nhóm '{news_type}': {e}")
 
     # 4. Cập nhật DataFrame với tất cả các tin nổi bật đã thu thập
-    if major_news_indices:
+    if major_selected_indices:
         # Dùng .loc để gán giá trị tại các index đã được chọn
-        news_df.loc[major_news_indices, 'major_news'] = 'x'
+        news_df.loc[major_selected_indices, 'major_selected'] = 'x'
     
-    return news_df['major_news']
+    return news_df['major_selected']
 
 def analyze_news_sectors(model_dict, news_df):
     """
@@ -513,7 +516,7 @@ def analyze_news_sectors(model_dict, news_df):
 
     # --- Gọi API và Xử lý kết quả ---
     try:
-        response = generate_content_with_model_dict(model_dict, full_prompt)
+        response = generate_content_with_model_dict(model_dict, full_prompt, 'analyze_news_sectors')
         
         # Tách kết quả cho từng tin tức
         raw_sectors_per_news = [item.strip() for item in response.strip().split('|')]
@@ -539,7 +542,7 @@ def analyze_news_sectors(model_dict, news_df):
         # Trả về danh sách các chuỗi rỗng có độ dài bằng số tin tức khi có lỗi
         return [''] * num_news
     
-def get_filtered_news_index(model_dict, news_df, num_articles, max_retry=3):
+def get_filtered_news_index(model_dict, news_df, num_articles, max_retry=5):
     for _ in range(max_retry):
         prompt = f"""
             Từ dữ liệu văn bản tôi cung cấp dưới đây, hãy thực hiện quy trình phân loại và chắt lọc theo các hướng dẫn chi tiết sau:
@@ -580,7 +583,7 @@ def get_filtered_news_index(model_dict, news_df, num_articles, max_retry=3):
             (Dữ liệu thô đầu vào ở phía bên dưới dòng này)
             {news_df['title'].to_csv(index=False, sep='|', lineterminator='\\n')}
         """
-        news_index_string = generate_content_with_model_dict(model_dict, prompt)
+        news_index_string = generate_content_with_model_dict(model_dict, prompt, 'get_filtered_news_index')
         # Chuẩn hóa chuỗi trả về
         news_index_string = news_index_string.strip().replace('\n', '').replace(' ', '')
         # Regex kiểm tra đúng định dạng: đúng num_articles*3 số nguyên, phân tách bằng dấu phẩy, không ký tự thừa
@@ -596,7 +599,7 @@ def get_filtered_news_index(model_dict, news_df, num_articles, max_retry=3):
     # Nếu sau max_retry lần vẫn không đúng, raise error
     raise ValueError(f"get_filtered_news_index trả về kết quả không đúng định dạng sau {max_retry} lần thử!")
 
-def get_top_news_index(model_dict, news_df, news_type, num_articles, max_retry=10):
+def get_weekly_top_news(model_dict, news_df, news_type, num_articles, max_retry=10):
     """
     Chọn ra đúng num_articles tin nổi bật nhất toàn bộ (không phân nhóm), trả về list index.
     """
@@ -605,7 +608,7 @@ def get_top_news_index(model_dict, news_df, news_type, num_articles, max_retry=1
             Từ dữ liệu văn bản tôi cung cấp dưới đây, hãy thực hiện quy trình chọn lọc theo các hướng dẫn chi tiết sau:
 
             1. Dữ liệu đầu vào:
-            - Là một khối văn bản, mỗi dòng gồm chỉ số index gốc và tiêu đề tin tức, index này có thể không liên tiếp và không bắt đầu từ 0.
+            - Là một khối văn bản, mỗi dòng gồm chỉ số index gốc, tiêu đề tin tức và đánh giá impact của tin tức, index này có thể không liên tiếp và không bắt đầu từ 0.
 
             2. Quy trình thực hiện:
 
@@ -618,6 +621,7 @@ def get_top_news_index(model_dict, news_df, news_type, num_articles, max_retry=1
             - Ưu tiên các tin có tác động lớn đến kinh tế vĩ mô, chính sách, thị trường tài chính, các sự kiện quốc tế quan trọng, hoặc các doanh nghiệp lớn có ảnh hưởng mạnh.
             - Ưu tiên các tin có tính mới, độc đáo, ảnh hưởng rộng, hoặc liên quan đến các quyết định chính sách lớn, các sự kiện bất thường, các số liệu kinh tế quan trọng, hoặc các sự kiện doanh nghiệp quy mô lớn.
             - Không chọn các tin chỉ mang tính cập nhật nhỏ, lặp lại, hoặc không có tác động rõ rệt.
+            - **Lưu ý quan trọng: Không được chọn quá 3 tin cùng một loại impact (Tích cực, Tiêu cực, Trung lập). Nếu có nhiều hơn 3 tin cùng loại impact, chỉ chọn tối đa 3 tin thuộc loại đó.**
 
             3. Định dạng kết quả đầu ra:
             - Chỉ trả về một dãy số gồm đúng {num_articles} số nguyên, mỗi số là index của các tiêu đề nổi bật nhất đã được chọn ở Bước B.
@@ -629,13 +633,58 @@ def get_top_news_index(model_dict, news_df, news_type, num_articles, max_retry=1
             Yêu cầu cuối cùng: Vui lòng chỉ trả về duy nhất dãy số theo đúng định dạng trên, không giải thích gì thêm.
 
             (Dữ liệu thô đầu vào ở phía bên dưới dòng này)
-            {news_df[news_df['news_type'] == news_type]['title'].to_csv(index=True, sep='|', lineterminator='\\n')}
+            {news_df[news_df['news_type'] == news_type][['title', 'impacts']].to_csv(index=True, sep='|', lineterminator='\\n')}
         """
-        news_index_string = generate_content_with_model_dict(model_dict, prompt)
+        news_index_string = generate_content_with_model_dict(model_dict, prompt, 'get_weekly_top_news')
         news_index_string = news_index_string.strip().replace('\n', '').replace(' ', '')
         pattern = rf'^(\d+,){{{num_articles-1}}}\d+$'
         if re.match(pattern, news_index_string):
             index_list = [int(x) for x in news_index_string.split(',')]
             if len(index_list) == num_articles:
                 return index_list
-    raise ValueError(f"get_top_news_index trả về kết quả không đúng định dạng sau {max_retry} lần thử!")
+    raise ValueError(f"get_weekly_top_news trả về kết quả không đúng định dạng sau {max_retry} lần thử!")
+
+def get_daily_top_news(model_dict, news_df, news_type, num_articles, max_retry=10):
+    """
+    Chọn ra đúng num_articles tin nổi bật nhất toàn bộ (không phân nhóm), trả về list index.
+    """
+    for _ in range(max_retry):
+        prompt = f"""
+            Từ dữ liệu văn bản tôi cung cấp dưới đây, hãy thực hiện quy trình chọn lọc theo các hướng dẫn chi tiết sau:
+
+            1. Dữ liệu đầu vào:
+            - Là một khối văn bản, mỗi dòng gồm chỉ số index gốc, tiêu đề tin tức và đánh giá impact của tin tức, index này có thể không liên tiếp và không bắt đầu từ 0.
+
+            2. Quy trình thực hiện:
+
+            Bước A: Loại bỏ các tin có cùng một nội dung hoặc chủ đề.
+            - Nếu có nhiều tiêu đề cùng nói về một sự kiện, chính sách, doanh nghiệp, số liệu, hoặc chỉ khác nhau về cách diễn đạt, ngày tháng, số liệu chi tiết… thì chỉ giữ lại duy nhất một tiêu đề nổi bật nhất, đầy đủ, tổng quát, đại diện cho chủ đề đó.
+            - Không chọn các tiêu đề chỉ khác nhau về thời gian, số liệu, hoặc chỉ là bản cập nhật/bổ sung của cùng một chủ đề.
+            - Ưu tiên giữ lại tiêu đề tổng hợp, khái quát, có giá trị thông tin cao nhất. Loại bỏ các tiêu đề còn lại bị trùng lặp về nội dung hoặc chỉ là bản cập nhật/bổ sung.
+
+            Bước B: Chọn ra đúng {num_articles} tiêu đề tin tức nổi bật nhất so với tất cả các tin còn lại.
+            - Ưu tiên các tin có tác động lớn đến kinh tế vĩ mô, chính sách, thị trường tài chính, các sự kiện quốc tế quan trọng, hoặc các doanh nghiệp lớn có ảnh hưởng mạnh.
+            - Ưu tiên các tin có tính mới, độc đáo, ảnh hưởng rộng, hoặc liên quan đến các quyết định chính sách lớn, các sự kiện bất thường, các số liệu kinh tế quan trọng, hoặc các sự kiện doanh nghiệp quy mô lớn.
+            - Không chọn các tin chỉ mang tính cập nhật nhỏ, lặp lại, hoặc không có tác động rõ rệt.
+            - **Lưu ý quan trọng: Không được chọn quá 2 tin cùng một loại impact (Tích cực, Tiêu cực, Trung lập). Nếu có nhiều hơn 3 tin cùng loại impact, chỉ chọn tối đa 3 tin thuộc loại đó.**
+
+            3. Định dạng kết quả đầu ra:
+            - Chỉ trả về một dãy số gồm đúng {num_articles} số nguyên, mỗi số là index của các tiêu đề nổi bật nhất đã được chọn ở Bước B.
+            - Các số cách nhau bằng dấu phẩy, không có ký tự hoặc giải thích nào khác.
+
+            - Ví dụ về định dạng kết quả đầu ra:
+            12,25,30
+
+            Yêu cầu cuối cùng: Vui lòng chỉ trả về duy nhất dãy số theo đúng định dạng trên, không giải thích gì thêm.
+
+            (Dữ liệu thô đầu vào ở phía bên dưới dòng này)
+            {news_df[(news_df['news_type'] == news_type) & (news_df['major_selected'] != 'x')][['title', 'impact']].to_csv(index=True, sep='|', lineterminator='\\n')}
+        """
+        news_index_string = generate_content_with_model_dict(model_dict, prompt, 'get_daily_top_news')
+        news_index_string = news_index_string.strip().replace('\n', '').replace(' ', '')
+        pattern = rf'^(\d+,){{{num_articles-1}}}\d+$'
+        if re.match(pattern, news_index_string):
+            index_list = [int(x) for x in news_index_string.split(',')]
+            if len(index_list) == num_articles:
+                return index_list
+    raise ValueError(f"get_daily_top_news trả về kết quả không đúng định dạng sau {max_retry} lần thử!")
