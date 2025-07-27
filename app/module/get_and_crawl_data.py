@@ -657,7 +657,7 @@ def get_vietnambiz_published_time(url):
         return ""
 
 
-def get_article_cafef_vneconomy(rss_url, num_articles):
+def get_article_vneconomy(rss_url, num_articles):
     articles_list = []
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -682,13 +682,6 @@ def get_article_cafef_vneconomy(rss_url, num_articles):
             print(f"Lỗi: RSS feed không hợp lệ hoặc không thể truy cập: {feed.bozo_exception}")
             return []
 
-        # Lấy tên nguồn từ tiêu đề của kênh hoặc từ domain của link
-        if "title" in feed.feed:
-            source_name = feed.feed.title.split("-")[0].strip().lower().replace(" ", "")
-        else:
-            parsed_uri = urlparse(rss_url)
-            source_name = parsed_uri.netloc.replace("www.", "").split(".")[0]
-
         # Lặp qua các bài báo trong feed
         for entry in feed.entries[:num_articles]:
             content_html = entry.get("content", [{}])[0].get("value", "") or entry.get("summary", "")
@@ -705,7 +698,7 @@ def get_article_cafef_vneconomy(rss_url, num_articles):
                     image_url = img_tag.get("src")
 
             article_dict = {
-                "source": source_name,
+                "source": 'VnEconomy',
                 "title": entry.get("title", "Không có tiêu đề"),
                 "content": content_text.strip(),
                 "image_url": image_url,
