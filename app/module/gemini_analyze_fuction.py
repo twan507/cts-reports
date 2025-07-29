@@ -220,61 +220,64 @@ def analyze_news_sectors(model_dict, news_df):
         return [''] * num_news
     
 def get_filtered_news_index(model_dict, news_df, num_articles, max_retry=5):
-    for _ in range(max_retry):
-        prompt = f"""
-            Từ dữ liệu văn bản tôi cung cấp dưới đây, hãy thực hiện quy trình phân loại và chắt lọc theo các hướng dẫn chi tiết sau:
+    news_titles_str = news_df[['title', 'content']].to_csv(index=True, sep='|', header=False, lineterminator='\\n')
 
-            1. Mô tả Dữ liệu đầu vào:
-            Dữ liệu đầu vào là một khối văn bản (text block). Mỗi dòng trong khối văn bản này là một tiêu đề tin tức riêng biệt, có thể nằm trong dấu ngoặc kép. Các tiêu đề được đánh chỉ số (index) theo thứ tự xuất hiện một cách tự nhiên, bắt đầu từ 0 cho dòng đầu tiên.
+    prompt = f"""
+        Từ dữ liệu văn bản tôi cung cấp dưới đây, hãy thực hiện quy trình phân loại và chắt lọc theo các hướng dẫn chi tiết sau:
 
-            2. Quy trình Thực hiện:
+        1. Mô tả Dữ liệu đầu vào:
+        Dữ liệu đầu vào là một khối văn bản. Mỗi dòng có định dạng "index|title|content".
 
-            Bước A: Phân loại toàn bộ các tiêu đề.
-            Hãy đọc từng tiêu đề và phân chúng vào 3 nhóm sau:
-            - Nhóm 1 (`trong_nuoc`): Các tin tức về kinh tế vĩ mô, chính sách, pháp luật, và các sự kiện chung trong phạm vi Việt Nam.
-            - Nhóm 2 (`quoc_te`): Các tin tức về kinh tế, chính trị, tài chính diễn ra bên ngoài Việt Nam.
-            - Nhóm 3 (`doanh_nghiep`): Các tin tức liên quan đến một doanh nghiệp, tập đoàn cụ thể tại Việt Nam, đặc biệt ưu tiên các doanh nghiệp có mã chứng khoán niêm yết trên sàn.
+        2. Quy trình Thực hiện:
 
-            Bước B: Loại bỏ các tin có cùng một nội dung hoặc chủ đề.
-            - Nếu có nhiều tiêu đề cùng nói về một sự kiện, chính sách, doanh nghiệp, số liệu, hoặc chỉ khác nhau về cách diễn đạt, ngày tháng, số liệu chi tiết… thì chỉ giữ lại duy nhất một tiêu đề nổi bật nhất, đầy đủ, tổng quát, đại diện cho chủ đề đó.
-            - Không chọn các tiêu đề chỉ khác nhau về thời gian, số liệu, hoặc chỉ là bản cập nhật/bổ sung của cùng một chủ đề.
-            - Ưu tiên giữ lại tiêu đề tổng hợp, khái quát, có giá trị thông tin cao nhất. Loại bỏ các tiêu đề còn lại bị trùng lặp về nội dung hoặc chỉ là bản cập nhật/bổ sung.
+        Bước A: Phân loại toàn bộ các tiêu đề vào 3 nhóm: `trong_nuoc`, `quoc_te`, `doanh_nghiep`.
+        - `trong_nuoc`: Tin kinh tế vĩ mô, chính sách, pháp luật tại việt nam Việt Nam.
+        - `quoc_te`: Tin kinh tế, tài chính, chính trị của các khu vực khác thế giới.
+        - `doanh_nghiep`: Tin về một doanh nghiệp, tập đoàn cụ thể có niêm yết trên thị trường chứng khoán Việt Nam.
 
-            Bước C: Chắt lọc {num_articles} tin nổi bật nhất từ mỗi nhóm.
-            Sau khi đã phân loại, từ mỗi nhóm hãy chọn ra đúng {num_articles} tiêu đề quan trọng và có tác động mạnh mẽ nhất dựa trên các tiêu chí ưu tiên sau:
-            - Đối với nhóm `trong_nuoc`: Ưu tiên tin về chính sách tiền tệ (lãi suất, tỷ giá), chính sách tài khóa, văn bản pháp quy mới, dự báo GDP, và các sự kiện trọng yếu của thị trường chứng khoán (VN-Index lập đỉnh, thông tin nâng hạng).
-            - Đối với nhóm `quoc_te`: Ưu tiên tin về quyết định của các ngân hàng trung ương lớn (Fed, ECB), kinh tế các quốc gia hàng đầu (Mỹ, Trung Quốc), căng thẳng/thỏa thuận thương mại toàn cầu.
-            - Đối với nhóm `doanh_nghiep`: Ưu tiên tin về một doanh nghiệp niêm yết cụ thể có tác động lớn: dự án đầu tư ngàn tỷ, kết quả kinh doanh kỷ lục, các vụ việc pháp lý lớn (bồi thường, thanh tra). Tránh các tin nói về cùng lúc nhiều doanh nghiệp hoặc chỉ là thông tin chung chung về ngành.
+        Bước B: Loại bỏ các tin có nội dung trùng lặp. Giữ lại duy nhất một tiêu đề đại diện, tổng quát nhất cho mỗi chủ đề.
 
-            3. Định dạng Kết quả đầu ra:
+        Bước C: Chắt lọc {num_articles} tin nổi bật nhất từ mỗi nhóm sau khi đã loại trùng lặp.
+        - `trong_nuoc`: Ưu tiên tin chính sách tiền tệ (lãi suất, tỷ giá), tài khóa, GDP và chỉ số chứng khoán (VNINDEX) **ở Việt Nam**. Tuyệt đối loại bỏ các tin tức không liên quan tới Việt Nam.
+        - `quoc_te`: Ưu tiên tin từ Fed, ECB, kinh tế Mỹ, Trung Quốc. Tuyệt đối loại bỏ các tin tức trực tiếp nhắc tới việt nam.
+        - `doanh_nghiep`: Ưu tiên tin về dự án lớn, kết quả kinh doanh kỷ lục, các vụ việc pháp lý lớn của một công ty niêm yết nổi tiếng (có cổ phiếu được nhiều sự quan tâm và thanh khoản lớn) và cụ thể (không phải nhiều công ty cùng lúc)
 
-            - Kết quả cuối cùng phải là một dãy số gồm đúng {num_articles*3} số nguyên, mỗi số là index (bắt đầu từ 0) của các tiêu đề nổi bật đã được chọn ở Bước B.
-            - Thứ tự các số như sau: {num_articles} index của nhóm `trong_nuoc` trước, tiếp theo là {num_articles} index của nhóm `quoc_te`, cuối cùng là {num_articles} index của nhóm `doanh_nghiep`.
-            - Các số cách nhau bằng dấu phẩy, không có ký tự hoặc giải thích nào khác.
+        3. Định dạng Kết quả đầu ra:
+        - Kết quả cuối cùng BẮT BUỘC phải là một đối tượng JSON (JSON object) hợp lệ.
+        - Đối tượng JSON này phải có 3 khóa (key) chính xác là: "trong_nuoc", "quoc_te", và "doanh_nghiep".
+        - Giá trị (value) của mỗi khóa là một mảng (array) chứa đúng {num_articles} số nguyên là index của các bài báo đã chọn.
+        - TUYỆT ĐỐI KHÔNG bao gồm bất kỳ giải thích, ghi chú, hay ký tự nào khác ngoài đối tượng JSON này.
 
-            - Ví dụ về định dạng kết quả đầu ra:
-            0,5,12,25,30,41,55,67,88,92,2,8,15,16,22,31,49,50,71,80,1,3,9,11,23,33,45,66,77,99
+        - Ví dụ về định dạng kết quả đầu ra mong muốn:
+        ```json
+        {{
+         "trong_nuoc": [0, 5, 12],
+         "quoc_te": [25, 30, 41],
+         "doanh_nghiep": [55, 67, 88]
+        }}
+        ```
 
-            Yêu cầu cuối cùng: Vui lòng chỉ trả về duy nhất dãy số theo đúng định dạng trên, không giải thích gì thêm.
+        Dữ liệu thô đầu vào:
+        {news_titles_str}
+    """
+    
+    # --- Bước 2: Gọi AI, xử lý và xác thực kết quả ---
+    for i in range(max_retry):
+        response_string = generate_content_with_model_dict(model_dict, prompt, 'get_filtered_news_index')
+        match = re.search(r'\{[\s\S]*\}', response_string)
+        if not match:
+            continue
+        json_string = match.group(0)
+        data = json.loads(json_string)
+        required_keys = {"trong_nuoc", "quoc_te", "doanh_nghiep"}
+        if not required_keys.issubset(data.keys()):
+            raise ValueError("Kết quả JSON thiếu các key bắt buộc.")
 
-            (Dữ liệu thô đầu vào ở phía bên dưới dòng này)
-            {news_df['title'].to_csv(index=False, sep='|', lineterminator='\\n')}
-        """
-        news_index_string = generate_content_with_model_dict(model_dict, prompt, 'get_filtered_news_index')
-        # Chuẩn hóa chuỗi trả về
-        news_index_string = news_index_string.strip().replace('\n', '').replace(' ', '')
-        # Regex kiểm tra đúng định dạng: đúng num_articles*3 số nguyên, phân tách bằng dấu phẩy, không ký tự thừa
-        pattern = rf'^(\d+,){{{num_articles*3-1}}}\d+$'
-        if re.match(pattern, news_index_string):
-            index_list = [int(x) for x in news_index_string.split(',')]
-            if len(index_list) == num_articles * 3:
-                return {
-                    "trong_nuoc": index_list[:num_articles],
-                    "quoc_te": index_list[num_articles:2*num_articles],
-                    "doanh_nghiep": index_list[2*num_articles:3*num_articles]
-                }
-    # Nếu sau max_retry lần vẫn không đúng, raise error
-    raise ValueError(f"get_filtered_news_index trả về kết quả không đúng định dạng sau {max_retry} lần thử!")
+        if not all(isinstance(data[key], list) and len(data[key]) == num_articles for key in required_keys):
+            raise ValueError(f"Mỗi danh sách trong JSON phải là một mảng chứa đúng {num_articles} phần tử.")
+        return data
+
+    raise ValueError(f"Không thể nhận được kết quả hợp lệ từ AI sau {max_retry} lần thử!")
 
 def get_weekly_top_news(model_dict, news_df, news_type, num_articles, max_retry=10):
     """
