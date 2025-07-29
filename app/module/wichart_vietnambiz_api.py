@@ -26,22 +26,18 @@ wichart_item_name_dict = {
         'pmi': 'Chỉ số quản lý mua hàng (PMI)',
         'hhdv': 'Tổng mức bán lẻ hàng hóa dịch vụ',
         'cctm': 'Cán cân thương mại',
-        'ncp': 'Nợ chính phủ',
-        'tcns': 'Thu chi ngân sách'
     },
     'hang_hoa': {
-        'heo_hơi': 'Giá heo hơi',
-        'tom_the': 'Giá tôm thẻ',
+        'heo_hoi': 'Giá heo hơi',
         'duong': 'Giá đường',
         'soi_coton': 'Giá sợi cotton',
         'gao_tpxk': 'Giá gạo xuất khẩu',
         'quang_sat': 'Giá quặng sắt',
-        'vang_the_gioi': 'Giá vàng thế giới',
         'vang': 'Giá vàng trong nước',
         'hrc_trung_quoc': 'Giá thép HRC Trung Quốc',
         'nhua_pvc_trung_quoc': 'Giá nhựa PVC Trung Quốc',
         'phot_pho': 'Giá phốt pho',
-        'phan_urea_trung_quoc': 'Giá phân Ure Trung Quốc',
+        'ure_trung_dong': 'Giá Ure Trung Đông',
         'cao_su_nhat_ban': 'Giá cao su Nhật Bản'
     }
 }
@@ -68,7 +64,7 @@ wichart_item_list_dict = {
 wichart_api_url_dict = {
     'tien_te': "https://api.wichart.vn/vietnambiz/vi-mo?name=",
     'vi_mo': "https://api.wichart.vn/vietnambiz/vi-mo?name=",
-    'hang_hoa': "https://api.wichart.vn/vietnambiz/vi-mo?name="
+    'hang_hoa': "https://api.wichart.vn/vietnambiz/vi-mo?key=hang_hoa&name="
 }
 
 def fetch_wichart_data(api_url: str):
