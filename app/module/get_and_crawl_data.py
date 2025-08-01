@@ -711,3 +711,28 @@ def get_article_vneconomy(rss_url, num_articles):
         return []
 
     return articles_list
+
+def get_today_date() -> pd.Timestamp:
+    """
+    Xác định và trả về ngày làm việc gần nhất.
+    - Nếu hôm nay là ngày làm việc (Thứ 2 - Thứ 6), trả về ngày hôm nay.
+    - Nếu hôm nay là Thứ 7 hoặc Chủ nhật, trả về ngày Thứ 6 trước đó.
+
+    Returns:
+        pd.Timestamp: Đối tượng Timestamp của ngày mục tiêu.
+    """
+    # Lấy ngày hôm nay và chuẩn hóa (loại bỏ giờ, phút, giây)
+    today = pd.Timestamp.now().normalize()
+
+    # Xác định ngày trong tuần (Thứ 2=0, ..., Thứ 7=5, Chủ nhật=6)
+    day_of_week = today.dayofweek
+
+    # Nếu là Thứ 7, lùi lại 1 ngày
+    if day_of_week == 5:
+        return today - pd.DateOffset(days=1)
+    # Nếu là Chủ nhật, lùi lại 2 ngày
+    elif day_of_week == 6:
+        return today - pd.DateOffset(days=2)
+    # Nếu là ngày trong tuần, trả về chính ngày hôm nay
+    else:
+        return today
