@@ -313,7 +313,7 @@ def get_weekly_top_news(model_dict, news_df, news_type, num_articles, max_retry=
             Yêu cầu cuối cùng: Vui lòng chỉ trả về duy nhất dãy số theo đúng định dạng trên, không giải thích gì thêm.
 
             (Dữ liệu thô đầu vào ở phía bên dưới dòng này)
-            {news_df[news_df['news_type'] == news_type][['title', 'impacts']].to_csv(index=True, sep='|', lineterminator='\\n')}
+            {news_df[news_df['news_type'] == news_type][['title', 'impact']].to_csv(index=True, sep='|', lineterminator='\\n')}
         """
         news_index_string = generate_content_with_model_dict(model_dict, prompt, 'get_weekly_top_news')
         news_index_string = news_index_string.strip().replace('\n', '').replace(' ', '')
