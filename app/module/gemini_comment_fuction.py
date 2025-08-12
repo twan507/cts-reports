@@ -8,6 +8,7 @@ from import_database import *
 from import_other import *
 from import_gemini import *
 
+
 def weekly_news_comment_prompt(df, news_type):
     prompt = f"""
     Bạn là một chuyên viên phân tích thị trường. Dưới đây là bảng dữ liệu các tin tức ngắn, mỗi dòng gồm các trường: [title], [content], [impact], [sectors].
@@ -22,12 +23,13 @@ def weekly_news_comment_prompt(df, news_type):
 
     2. Cấu trúc nội dung:
         - Câu 1: Nêu nhận định hoặc xu hướng chính nổi bật nhất từ các tin tức.
-        - Câu 2: Trình bày nguyên nhân, động lực hoặc yếu tố tích cực quan trọng nhất hỗ trợ xu hướng đó.
+        - Câu 2: Trình bày nguyên nhân, động lực hoặc yếu tố TÍCH CỰC quan trọng nhất hỗ trợ xu hướng đó.
         - Câu 3: Đề cập một khó khăn, rủi ro hoặc thông tin trái ngược mang tính kìm hãm.
         - Câu 4: Mô tả kết quả, hệ quả hoặc ảnh hưởng thực tế đến một lĩnh vực/đối tượng cụ thể.
         - Câu 5: Tổng hợp các ý trên để đưa ra kết luận chung hoặc dự báo xu hướng sắp tới.
 
     3. Yêu cầu khác:
+        - Chỉ sử dụng tiếng việt, không sử dụng tiếng Anh và các ngôn ngữ khác.
         - Chỉ sử dụng thông tin trong bảng, không thêm ý ngoài.
         - Tuyệt đối không đề cập đến 1 tin tức cụ thể nào.
         - Chủ đề tập trung vào kinh tế vĩ mô, không quá tập trung vào thị trường chứng khoán.
@@ -35,13 +37,14 @@ def weekly_news_comment_prompt(df, news_type):
         - Chỉ hiển thị đoạn văn hoàn chỉnh, không lặp lại hướng dẫn.
 
     Bảng dữ liệu:
-    {df[(df['news_type']==news_type) & (df['ai_selected']=='x')][['title', 'content', 'impact', 'sectors']].to_csv(index=False, sep='|', lineterminator='\\n')}
+    {df[(df["news_type"] == news_type) & (df["ai_selected"] == "x")][["title", "content", "impact", "sectors"]].to_csv(index=False, sep="|", lineterminator="\\n")}
     """
 
     return prompt
 
+
 def weekly_data_comment_prompt(df, type_name):
-    if type_name == 'vn':
+    if type_name == "vn":
         senerio = """
             Câu 1 (Thị trường chung): Bắt đầu bằng nhận định về chỉ số chính VN-Index, trích dẫn số liệu tăng trưởng tuần (1w_change).
             Câu 2 (Nhóm Cổ phiếu Lớn): Nhận xét về nhóm cổ phiếu blue-chip qua chỉ số VN30, trích dẫn số liệu tăng trưởng tuần (1w_change), nhấn mạnh mức độ biến động và so sánh với VN-Index.
@@ -49,7 +52,7 @@ def weekly_data_comment_prompt(df, type_name):
             Câu 4 (Thị trường Phái sinh): Nhận xét về thị trường phái sinh, chỉ nhận xét VN30F1M bỏ qua VN30F2M. So sánh điểm số đóng cửa của nó với chỉ số VN30 cơ sở để nêu bật mức chênh lệch (basis).
             Câu 5 (Kết luận): Viết một câu kết luận khách quan để tổng hợp lại bức tranh chung, ví dụ như mức độ lan tỏa của đà tăng hoặc vai trò dẫn dắt của nhóm cổ phiếu nào.
         """
-    elif type_name == 'international':
+    elif type_name == "international":
         senerio = """
             Câu 1: Nhận định chung về thị trường chứng khoán toàn cầu trong tuần qua.
             Câu 2: Tập trung vào thị trường Mỹ (DJI, SPX) và trích dẫn số liệu 1w_change.
@@ -57,7 +60,7 @@ def weekly_data_comment_prompt(df, type_name):
             Câu 4: Tập trung vào thị trường Châu Á (N225, SSEC) và trích dẫn số liệu 1w_change.
             Câu 5: Viết một câu kết luận cuối cùng. Câu này phải **hoàn toàn khách quan**, chỉ tổng hợp lại thông tin, **tuyệt đối không đưa ra quan điểm cá nhân hay dự đoán**.
         """
-    elif type_name == 'other':
+    elif type_name == "other":
         senerio = """
             Câu 1: Nhận định chung về các loại thị trường trong tuần qua (Crypto, Hàng hóa, Ngoại hối).
             Câu 2: Tập trung vào thị trường Tiền điện tử (BTC, ETH) và trích dẫn số liệu 1w_change.
@@ -66,14 +69,14 @@ def weekly_data_comment_prompt(df, type_name):
             Câu 5: Viết một câu kết luận cuối cùng. Câu này phải **hoàn toàn khách quan**, chỉ tổng hợp lại thông tin, **tuyệt đối không đưa ra quan điểm cá nhân hay dự đoán**.
         """
 
-    #Tách bảng lớn ra thành nhiều bảng để AI dễ đọc
-    type_df = df[df['type'] == type_name]
+    # Tách bảng lớn ra thành nhiều bảng để AI dễ đọc
+    type_df = df[df["type"] == type_name]
     type_dict = {}
-    index_list = type_df['ticker'].unique().tolist()
+    index_list = type_df["ticker"].unique().tolist()
     for index in index_list:
-        temp_df = type_df[type_df['ticker'] == index]
-        temp_df = temp_df.sort_values('date', ascending=False).reset_index(drop=True)
-        type_dict[index] = temp_df.to_csv(index=False, sep='|', lineterminator='\n')
+        temp_df = type_df[type_df["ticker"] == index]
+        temp_df = temp_df.sort_values("date", ascending=False).reset_index(drop=True)
+        type_dict[index] = temp_df.to_csv(index=False, sep="|", lineterminator="\n")
 
     prompt = f"""
         Dựa vào các bảng dữ liệu được cung cấp dưới đây, hãy viết một đoạn văn nhận xét thị trường:
@@ -107,10 +110,11 @@ def weekly_data_comment_prompt(df, type_name):
     """
     return prompt
 
+
 def weekly_vnindex_comment_prompt(df):
     prompt = f"""
         Đây là dữ liệu của chỉ số VNINDEX:
-            {df.to_csv(index=False, sep='|', lineterminator='\n')}
+            {df.to_csv(index=False, sep="|", lineterminator="\n")}
         **Vai trò:** Bạn là một **nhà phân tích kỹ thuật cấp cao**, có kinh nghiệm tại một công ty chứng khoán.
         **Nhiệm vụ:** Dựa trên dữ liệu biến động giá và các chỉ báo kỹ thuật của chỉ số VNINDEX được cung cấp, hãy viết một báo cáo phân tích kỹ thuật chuyên nghiệp, súc tích và liền mạch, tuân thủ nghiêm ngặt cấu trúc 8 câu dưới đây.
         **Yêu cầu về nội dung, cấu trúc và định dạng:**
@@ -140,6 +144,7 @@ def weekly_vnindex_comment_prompt(df):
                     * **LUÔN LUÔN** sử dụng ngày dạng dd/mm trong bài viết, ví dụ: "ngày 03/01" thay vì "ngày 2023-01-03".
     """
     return prompt
+
 
 def weekly_ms_comment_prompt(df):
     prompt = f"""
@@ -175,7 +180,7 @@ def weekly_ms_comment_prompt(df):
     ### **Phần 2: Yêu cầu Phân tích (Nhiệm vụ cần thực hiện)**
 
     **Dữ liệu:**
-    {df.drop(columns=['trend_240p']).to_csv(index=False, sep='|', lineterminator='\n')}
+    {df.drop(columns=["trend_240p"]).to_csv(index=False, sep="|", lineterminator="\n")}
 
     **Vai trò**: Bạn là một nhà phân tích chiến lược thị trường cấp cao, với trách nhiệm đưa ra các phân tích và khuyến nghị cho khách hàng.
     **Nhiệm vụ:** Dựa trên kiến thức về bộ dữ liệu và bảng dữ liệu được cung cấp, hãy viết một báo cáo phân tích xu hướng thị trường cho khách hàng trong tuần tới.
