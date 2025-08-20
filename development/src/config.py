@@ -15,8 +15,8 @@ def get_root_dir():
         return project_root
 
 
-APP_NAME = "Report Generator"
-EXE_FILE_NAME = "ReportGenerator.exe"
+APP_NAME = "CTSReport"
+EXE_FILE_NAME = "CTSReport.exe"
 JUPYTER_KERNEL_NAME = f"{APP_NAME.lower().replace(' ', '-')}-venv"
 
 ROOT_DIR = get_root_dir()

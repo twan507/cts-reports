@@ -56,6 +56,7 @@ package_to_module_map = {
     'PyYAML': 'yaml',
     'scikit-learn': 'sklearn',
     'fpdf2': 'fpdf',
+    'alpha-vantage': 'alpha_vantage'
 }
 
 ignore_list = {
@@ -111,7 +112,6 @@ required_hiddenimports = [
     'win32console',
     'sqlalchemy.dialects.mysql',
     'cryptography.fernet',
-    'alpha_vantage',
     'alpha_vantage.foreignexchange'
 ]
 
