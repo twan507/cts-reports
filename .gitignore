@@ -235,3 +235,5 @@ cache/
 
 # Output directory
 app/output/**/*.**
+
+ReportGenerator/
