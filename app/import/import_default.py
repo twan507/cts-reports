@@ -33,6 +33,7 @@ from pathlib import Path
 import glob
 from dateutil import parser
 import json
+import kaleido
 
 # Bỏ qua các cảnh báo không quan trọng để giữ cho output sạch sẽ
 warnings.filterwarnings("ignore")
