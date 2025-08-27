@@ -8,6 +8,62 @@ from import_database import *
 from import_other import *
 from import_gemini import *
 
+def create_new_article_title(model_dict, title, content):
+    def count_words(text):
+        """Đếm số từ trong văn bản tiếng Việt"""
+        # Loại bỏ ký tự xuống dòng và khoảng trắng thừa
+        clean_text = ' '.join(text.strip().split())
+        # Đếm từ bằng cách tách theo khoảng trắng
+        return len(clean_text.split())
+    
+    def create_prompt(attempt=1):
+        """Tạo prompt với điều chỉnh dựa trên số lần thử"""
+        word_requirement = ""
+        if attempt == 1:
+            word_requirement = "- ĐÚNG 1 CÂU VĂN, mỗi câu khoảng 12-20 từ"
+        elif attempt == 2:
+            word_requirement = "- ĐÚNG 1 CÂU VĂN, mỗi câu CHÍNH XÁC 14 từ"
+        else:
+            word_requirement = "- NGHIÊM NGẶT: 1 CÂU VĂN, mỗi câu ĐÚNG 14 từ, không nhiều hơn, không ít hơn"
+
+        return f"""
+            Tôi có một bài báo với tiêu đề hiện tại:
+            {title}
+
+            Nội dung chính của bài báo như sau:
+            {content}
+
+            Hãy dựa vào tiêu đề chính, viết lại 1 tiêu đề mới mang tính chất tương tự nhưng thoả mãn các yêu cầu nghiêm ngặt sau:
+                {word_requirement}
+                - Sử dụng ngôn ngữ tự nhiên, giàu tính báo chí, tránh việc chỉ liệt kê số liệu.
+                - Chỉ đưa số liệu cụ thể khi thực sự cần thiết để nhấn mạnh.
+                - Tiêu đề phải ngắn gọn, súc tích, rõ ý, đúng phong cách báo chí chuyên nghiệp.
+                - **ĐẶC BIỆT QUAN TRỌNG**: Viết thành một câu duy nhất, không in đậm, không xuống dòng.
+        """
+    
+    # Thử tối đa 5 lần để có được kết quả trong khoảng 30-40 từ
+    max_attempts = 5
+    
+    for attempt in range(1, max_attempts + 1):
+        try:
+            prompt = create_prompt(attempt)
+            result = generate_content_with_model_dict(model_dict, prompt, 'create_new_article_title')
+            
+            # Đếm số từ
+            word_count = count_words(result)
+
+            # Kiểm tra xem có nằm trong khoảng 15-20 từ không
+            if 10 <= word_count <= 20:
+                return result
+            else:
+                if attempt == max_attempts:
+                    return title
+                
+        except Exception as e:
+            print(f"❌ Lỗi lần thử {attempt}: {e}")
+            if attempt == max_attempts:
+                raise e
+
 def summary_daily_article(model_dict, content):
     def count_words(text):
         """Đếm số từ trong văn bản tiếng Việt"""
