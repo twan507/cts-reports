@@ -15,7 +15,7 @@ def main():
         template_path = os.path.join(dev_dir, 'decode_env.py')
         
         app_dir = os.path.join(root_dir, 'app')
-        encrypted_output_path = os.path.join(app_dir, 'data', 'env.encrypted')
+        encrypted_output_path = os.path.join(app_dir, 'import', 'env.encrypted')
         import_dir = os.path.join(app_dir, 'import')
         
         temp_py_file = os.path.join(import_dir, '_temp_import_env.py')

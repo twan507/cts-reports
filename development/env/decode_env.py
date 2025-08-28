@@ -15,7 +15,7 @@ def _initialize_env(): # Đổi tên hàm nội bộ cho rõ ràng hơn
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         app_dir = os.path.abspath(os.path.join(script_dir, '..'))
-        encrypted_file_path = os.path.join(app_dir, 'data', 'env.encrypted')
+        encrypted_file_path = os.path.join(app_dir, 'import', 'env.encrypted')
         if not os.path.exists(encrypted_file_path):
             return
         with open(encrypted_file_path, 'rb') as f:
