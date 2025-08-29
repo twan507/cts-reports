@@ -237,3 +237,6 @@ cache/
 app/output/**/*.**
 
 ReportGenerator/
+
+# Ignore RAR files
+*.rar
