@@ -578,18 +578,25 @@ class ScheduleManagerWidget(QWidget):
         self.hour_spin.setValue(QTime.currentTime().hour())
         self.hour_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
         self.hour_spin.setObjectName("HourSpinBox")
-        self.hour_spin.setFixedWidth(40)
-        creator_layout.addWidget(self.hour_spin)
+        self.hour_spin.setFixedWidth(35)
+        self.hour_spin.setStyleSheet("QSpinBox { padding: 2px 0px; text-align: center; }")
 
-        creator_layout.addWidget(QLabel(":"))
+        # Tạo layout riêng cho cụm giờ:phút với spacing nhỏ
+        time_layout = QHBoxLayout()
+        time_layout.setSpacing(2)  # Giảm khoảng cách xuống 2px
+        time_layout.addWidget(self.hour_spin)
+        time_layout.addWidget(QLabel(":"))
 
         self.minute_spin = CustomSpinBox(padded_display=True)
         self.minute_spin.setRange(0, 59)
         self.minute_spin.setValue(QTime.currentTime().minute())
         self.minute_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
         self.minute_spin.setObjectName("MinuteSpinBox")
-        self.minute_spin.setFixedWidth(40)
-        creator_layout.addWidget(self.minute_spin)
+        self.minute_spin.setFixedWidth(35)
+        self.minute_spin.setStyleSheet("QSpinBox { padding: 2px 0px; text-align: center; }")
+
+        time_layout.addWidget(self.minute_spin)
+        creator_layout.addLayout(time_layout)
 
         main_group_layout.addLayout(creator_layout)
 
@@ -702,7 +709,8 @@ class ScheduleManagerWidget(QWidget):
             placeholder.setStyleSheet("color: #888;")
             self.tasks_layout.addWidget(placeholder)
         else:
-            sorted_tasks = sorted(self.tasks_data.items(), key=lambda item: item[1]["time"])
+            # Sắp xếp theo section trước (section_name), rồi đến thời gian sau
+            sorted_tasks = sorted(self.tasks_data.items(), key=lambda item: (item[1]["section_name"], item[1]["time"]))
             for task_id, task_info in sorted_tasks:
                 # MODIFIED: Create new two-line widget
                 task_widget = ScheduledTaskDisplayWidget(
@@ -802,18 +810,15 @@ class SectionWidget(QWidget):
 
         # Chuyển đổi msg_type sang 'Output' hoặc 'ERROR'
         log_type = "ERROR" if msg_type == "EXECUTION_ERROR" else "Output"
-        
+
         # Lấy nội dung thực sự từ dict (đối với lỗi)
         log_content = content.get("details", "") if isinstance(content, dict) else str(content)
 
         # Gọi hàm định dạng mới với đầy đủ thông tin
         formatted_log = functions.format_output_for_cmd(
-            log_type=log_type,
-            section_name=self.section_name,
-            nb_name=nb_name,
-            content=log_content
+            log_type=log_type, section_name=self.section_name, nb_name=nb_name, content=log_content
         )
-        
+
         # Gửi chuỗi đã định dạng tới console chính
         self.parent_runner.log_message_to_cmd(formatted_log, is_block=True)
 
